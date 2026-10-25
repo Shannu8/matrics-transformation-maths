@@ -70,6 +70,48 @@ export class Viewport3D {
   /** Documented floating-point comparison tolerance */
   static EPSILON = 1e-9;
 
+  /** Canonical 8 vertices of the unit cube [0, 1]^3 in the positive octant */
+  static UNIT_CUBE_VERTICES = [
+    [0, 0, 0], // 0: Origin
+    [1, 0, 0], // 1: +X
+    [1, 1, 0], // 2: +X +Y
+    [0, 1, 0], // 3: +Y
+    [0, 0, 1], // 4: +Z
+    [1, 0, 1], // 5: +X +Z
+    [1, 1, 1], // 6: +X +Y +Z
+    [0, 1, 1]  // 7: +Y +Z
+  ];
+
+  /** 12 edges connecting the 8 unit cube vertices */
+  static CUBE_EDGE_INDICES = [
+    0, 1,  1, 2,  2, 3,  3, 0, // Bottom face (z=0)
+    4, 5,  5, 6,  6, 7,  7, 4, // Top face (z=1)
+    0, 4,  1, 5,  2, 6,  3, 7  // Vertical pillars connecting bottom to top
+  ];
+
+  /** 12 triangles forming the 6 outward faces of the unit cube */
+  static CUBE_TRIANGLE_INDICES = [
+    0, 3, 2,  0, 2, 1, // Bottom (z=0)
+    4, 5, 6,  4, 6, 7, // Top (z=1)
+    0, 1, 5,  0, 5, 4, // Front (y=0)
+    2, 3, 7,  2, 7, 6, // Back (y=1)
+    0, 4, 7,  0, 7, 3, // Left (x=0)
+    1, 2, 6,  1, 6, 5  // Right (x=1)
+  ];
+
+  /**
+   * Authoritative mathematical transformation of the 8 canonical unit cube vertices [0, 1]^3.
+   * Uses column-vector convention: v' = M * v.
+   */
+  static getTransformedCubeVertices(matrix) {
+    const M = (matrix && matrix.length === 9) ? matrix : [1, 0, 0,  0, 1, 0,  0, 0, 1];
+    return Viewport3D.UNIT_CUBE_VERTICES.map(v => [
+      M[0] * v[0] + M[1] * v[1] + M[2] * v[2],
+      M[3] * v[0] + M[4] * v[1] + M[5] * v[2],
+      M[6] * v[0] + M[7] * v[1] + M[8] * v[2]
+    ]);
+  }
+
   constructor(containerElement, onStepChangeCallback, onPlayStateChangeCallback) {
     this.container = containerElement;
     this.onStepChange = onStepChangeCallback;
@@ -98,6 +140,12 @@ export class Viewport3D {
     this.geometryGroup = null;
     this.cubeMesh = null;
     this.cubeWireframe = null;
+    this.refCubeWireframe = null;
+    this.cubeCornerPoints = null;
+    this.cubeMeshGeom = null;
+    this.cubeEdgesGeom = null;
+    this.cubeCornersGeom = null;
+    this.currentCubeMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
     this.showUnitCube = false;
     this.projectionGroup = null;
 
@@ -482,6 +530,11 @@ export class Viewport3D {
     const coordStr = `(${v[0].toFixed(2)}, ${v[1].toFixed(2)}, ${v[2].toFixed(2)})`;
     this.updatePrimaryArrow(v, `v₀: ${coordStr}`);
     this.updateProjectionLines(v);
+
+    // If no active animated pipeline, ensure cube aligns with identity state
+    if (!this.animationSegments || this.animationSegments.length === 0) {
+      this.updateUnitCube([1, 0, 0,  0, 1, 0,  0, 0, 1]);
+    }
   }
 
   updateVector(vec3) {
@@ -492,41 +545,186 @@ export class Viewport3D {
     this.geometryGroup = new THREE.Group();
     this.geometryGroup.name = 'unitCube';
 
-    // 1x1x1 Unit cube centered in positive octant (0,0,0) to (1,1,1)
-    const cubeGeom = new THREE.BoxGeometry(1, 1, 1);
-    cubeGeom.translate(0.5, 0.5, 0.5);
-
-    // Subtle neutral slate styling so it does NOT clash with the primary cyan vector
-    const cubeMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      transparent: true,
-      opacity: 0.06,
-      roughness: 0.5,
-      metalness: 0.1,
-      side: THREE.DoubleSide
-    });
-    this.cubeMesh = new THREE.Mesh(cubeGeom, cubeMat);
-    this.geometryGroup.add(this.cubeMesh);
-
-    // Subtle wireframe edges
-    const edgesGeom = new THREE.EdgesGeometry(cubeGeom);
-    const edgeMat = new THREE.LineBasicMaterial({
+    // 1. Static Reference Unit Cube at [0, 1]^3 in positive octant
+    // Muted slate styling so users can always identify the original reference volume
+    const refEdgePositions = new Float32Array(Viewport3D.CUBE_EDGE_INDICES.length * 3);
+    for (let e = 0; e < Viewport3D.CUBE_EDGE_INDICES.length; e++) {
+      const idx = Viewport3D.CUBE_EDGE_INDICES[e];
+      const vert = Viewport3D.UNIT_CUBE_VERTICES[idx];
+      refEdgePositions[e * 3 + 0] = vert[0];
+      refEdgePositions[e * 3 + 1] = vert[1];
+      refEdgePositions[e * 3 + 2] = vert[2];
+    }
+    const refEdgeGeom = new THREE.BufferGeometry();
+    refEdgeGeom.setAttribute('position', new THREE.BufferAttribute(refEdgePositions, 3));
+    const refEdgeMat = new THREE.LineBasicMaterial({
       color: 0x64748b,
       transparent: true,
-      opacity: 0.4
+      opacity: 0.35
     });
-    this.cubeWireframe = new THREE.LineSegments(edgesGeom, edgeMat);
+    this.refCubeWireframe = new THREE.LineSegments(refEdgeGeom, refEdgeMat);
+    this.refCubeWireframe.name = 'refCubeWireframe';
+    this.geometryGroup.add(this.refCubeWireframe);
+
+    // 2. Transformed Unit Cube Mesh (12 Triangles / 6 Faces)
+    // Directly updated via buffer positions to handle singular matrices, reflections, and shears
+    const facePositions = new Float32Array(8 * 3);
+    for (let i = 0; i < 8; i++) {
+      const vert = Viewport3D.UNIT_CUBE_VERTICES[i];
+      facePositions[i * 3 + 0] = vert[0];
+      facePositions[i * 3 + 1] = vert[1];
+      facePositions[i * 3 + 2] = vert[2];
+    }
+    this.cubeMeshGeom = new THREE.BufferGeometry();
+    this.cubeMeshGeom.setAttribute('position', new THREE.BufferAttribute(facePositions, 3));
+    this.cubeMeshGeom.setIndex(Viewport3D.CUBE_TRIANGLE_INDICES);
+    this.cubeMeshGeom.computeVertexNormals();
+
+    // Use MeshBasicMaterial with DoubleSide so that:
+    // a) Reflections (det < 0) don't cull or invert faces
+    // b) Singular projections (det = 0) never trigger normal-matrix division by zero in shaders
+    const cubeMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    this.cubeMesh = new THREE.Mesh(this.cubeMeshGeom, cubeMat);
+    this.cubeMesh.name = 'transformedCubeMesh';
+    this.geometryGroup.add(this.cubeMesh);
+
+    // 3. Transformed Unit Cube Wireframe (12 Edges)
+    const dynamicEdgePositions = new Float32Array(Viewport3D.CUBE_EDGE_INDICES.length * 3);
+    dynamicEdgePositions.set(refEdgePositions);
+    this.cubeEdgesGeom = new THREE.BufferGeometry();
+    this.cubeEdgesGeom.setAttribute('position', new THREE.BufferAttribute(dynamicEdgePositions, 3));
+
+    const dynamicEdgeMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.85,
+      linewidth: 2
+    });
+    this.cubeWireframe = new THREE.LineSegments(this.cubeEdgesGeom, dynamicEdgeMat);
+    this.cubeWireframe.name = 'transformedCubeWireframe';
     this.geometryGroup.add(this.cubeWireframe);
 
+    // 4. Corner Vertex Markers (8 points at transformed corners)
+    const cornerPositions = new Float32Array(8 * 3);
+    cornerPositions.set(facePositions);
+    this.cubeCornersGeom = new THREE.BufferGeometry();
+    this.cubeCornersGeom.setAttribute('position', new THREE.BufferAttribute(cornerPositions, 3));
+    const cornerMat = new THREE.PointsMaterial({
+      color: 0x38bdf8,
+      size: 5,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.9
+    });
+    this.cubeCornerPoints = new THREE.Points(this.cubeCornersGeom, cornerMat);
+    this.cubeCornerPoints.name = 'transformedCubeCorners';
+    this.geometryGroup.add(this.cubeCornerPoints);
+
     this.geometryGroup.visible = this.showUnitCube;
+    this.currentCubeMatrix = [1, 0, 0,  0, 1, 0,  0, 0, 1];
     this.scene.add(this.geometryGroup);
+  }
+
+  updateUnitCube(matrix = null) {
+    if (!this.geometryGroup) return;
+
+    let M = (matrix && matrix.length === 9) ? matrix : [1, 0, 0,  0, 1, 0,  0, 0, 1];
+    if (!M.every(Number.isFinite)) {
+      M = [1, 0, 0,  0, 1, 0,  0, 0, 1];
+    }
+    this.currentCubeMatrix = [...M];
+
+    const verts = Viewport3D.getTransformedCubeVertices(M);
+
+    // 1. Update face positions
+    if (this.cubeMeshGeom && this.cubeMeshGeom.attributes.position) {
+      const pos = this.cubeMeshGeom.attributes.position.array;
+      for (let i = 0; i < 8; i++) {
+        pos[i * 3 + 0] = verts[i][0];
+        pos[i * 3 + 1] = verts[i][1];
+        pos[i * 3 + 2] = verts[i][2];
+      }
+      this.cubeMeshGeom.attributes.position.needsUpdate = true;
+      this.cubeMeshGeom.computeVertexNormals();
+      this.cubeMeshGeom.computeBoundingBox();
+      this.cubeMeshGeom.computeBoundingSphere();
+    }
+
+    // 2. Update edge line segment positions
+    if (this.cubeEdgesGeom && this.cubeEdgesGeom.attributes.position) {
+      const pos = this.cubeEdgesGeom.attributes.position.array;
+      for (let e = 0; e < Viewport3D.CUBE_EDGE_INDICES.length; e++) {
+        const vIdx = Viewport3D.CUBE_EDGE_INDICES[e];
+        pos[e * 3 + 0] = verts[vIdx][0];
+        pos[e * 3 + 1] = verts[vIdx][1];
+        pos[e * 3 + 2] = verts[vIdx][2];
+      }
+      this.cubeEdgesGeom.attributes.position.needsUpdate = true;
+      this.cubeEdgesGeom.computeBoundingBox();
+      this.cubeEdgesGeom.computeBoundingSphere();
+    }
+
+    // 3. Update corner markers
+    if (this.cubeCornersGeom && this.cubeCornersGeom.attributes.position) {
+      const pos = this.cubeCornersGeom.attributes.position.array;
+      for (let i = 0; i < 8; i++) {
+        pos[i * 3 + 0] = verts[i][0];
+        pos[i * 3 + 1] = verts[i][1];
+        pos[i * 3 + 2] = verts[i][2];
+      }
+      this.cubeCornersGeom.attributes.position.needsUpdate = true;
+      this.cubeCornersGeom.computeBoundingBox();
+      this.cubeCornersGeom.computeBoundingSphere();
+    }
+
+    // Reset group matrix to identity so geometry directly defines authoritative world coordinates
+    this.geometryGroup.matrix.identity();
+    this.geometryGroup.matrixAutoUpdate = true;
+    this.geometryGroup.matrixWorldNeedsUpdate = true;
+  }
+
+  getTransformedCubeVertices(matrix = null) {
+    return Viewport3D.getTransformedCubeVertices(matrix || this.currentCubeMatrix);
   }
 
   setShowUnitCube(visible) {
     this.showUnitCube = !!visible;
     if (this.geometryGroup) {
       this.geometryGroup.visible = this.showUnitCube;
+      if (this.showUnitCube) {
+        this.updateUnitCube(this.currentCubeMatrix);
+
+        // Check if current cube bounds exceed current axis extents
+        const cubeVerts = Viewport3D.getTransformedCubeVertices(this.currentCubeMatrix);
+        let curX = this.axisExtents.x;
+        let curY = this.axisExtents.y;
+        let curZ = this.axisExtents.z;
+        for (let i = 0; i < 8; i++) {
+          curX = Math.max(curX, Math.abs(cubeVerts[i][0]) + this.axisMargin);
+          curY = Math.max(curY, Math.abs(cubeVerts[i][1]) + this.axisMargin);
+          curZ = Math.max(curZ, Math.abs(cubeVerts[i][2]) + this.axisMargin);
+        }
+        if (curX > this.axisExtents.x + 0.1 || curY > this.axisExtents.y + 0.1 || curZ > this.axisExtents.z + 0.1) {
+          const newExtents = {
+            x: Math.max(this.axisExtents.x, curX),
+            y: Math.max(this.axisExtents.y, curY),
+            z: Math.max(this.axisExtents.z, curZ)
+          };
+          this.updateAxes(newExtents);
+          this.updateGrid(newExtents.x, newExtents.z);
+        }
+      }
     }
+  }
+
+  getShowUnitCube() {
+    return this.showUnitCube;
   }
 
   setupPrimaryArrow() {
@@ -1050,6 +1248,16 @@ export class Viewport3D {
       allVectors.push(result.recoveredVector);
     }
 
+    // Include unit cube vertices across all steps if unit cube is visible
+    if (this.showUnitCube && result.steps) {
+      let accum = [1, 0, 0,  0, 1, 0,  0, 0, 1];
+      Viewport3D.getTransformedCubeVertices(accum).forEach(v => allVectors.push(v));
+      result.steps.forEach(st => {
+        accum = this.multiplyMat(st.matrix, accum);
+        Viewport3D.getTransformedCubeVertices(accum).forEach(v => allVectors.push(v));
+      });
+    }
+
     // 2. Compute and apply dynamic axis extents and adaptive grid
     const extents = this.calculateRequiredExtents(allVectors);
     this.updateAxes(extents);
@@ -1164,10 +1372,20 @@ export class Viewport3D {
     this.updatePrimaryArrow(state.vector, tipBadge);
 
     // Dynamic extent check during animation:
-    // If animated vector ever moves beyond existing axis extents, expand dynamically
-    const curX = Math.abs(state.vector[0]) + this.axisMargin;
-    const curY = Math.abs(state.vector[1]) + this.axisMargin;
-    const curZ = Math.abs(state.vector[2]) + this.axisMargin;
+    // If animated vector or transformed unit cube ever moves beyond existing axis extents, expand dynamically
+    let curX = Math.abs(state.vector[0]) + this.axisMargin;
+    let curY = Math.abs(state.vector[1]) + this.axisMargin;
+    let curZ = Math.abs(state.vector[2]) + this.axisMargin;
+
+    if (this.showUnitCube && state.matrix) {
+      const cubeVerts = Viewport3D.getTransformedCubeVertices(state.matrix);
+      for (let i = 0; i < 8; i++) {
+        curX = Math.max(curX, Math.abs(cubeVerts[i][0]) + this.axisMargin);
+        curY = Math.max(curY, Math.abs(cubeVerts[i][1]) + this.axisMargin);
+        curZ = Math.max(curZ, Math.abs(cubeVerts[i][2]) + this.axisMargin);
+      }
+    }
+
     if (curX > this.axisExtents.x + 0.1 || curY > this.axisExtents.y + 0.1 || curZ > this.axisExtents.z + 0.1) {
       const newExtents = {
         x: Math.max(this.axisExtents.x, curX),
@@ -1187,20 +1405,8 @@ export class Viewport3D {
     // 2. Update projection drop lines
     this.updateProjectionLines(state.vector);
 
-    // 3. Update transformed unit cube
-    if (this.geometryGroup) {
-      const m = state.matrix;
-      const mat4 = new THREE.Matrix4();
-      mat4.set(
-        m[0], m[1], m[2], 0,
-        m[3], m[4], m[5], 0,
-        m[6], m[7], m[8], 0,
-        0, 0, 0, 1
-      );
-      this.geometryGroup.matrixAutoUpdate = false;
-      this.geometryGroup.matrix.copy(mat4);
-      this.geometryGroup.matrixWorldNeedsUpdate = true;
-    }
+    // 3. Update transformed unit cube directly via vertex positions
+    this.updateUnitCube(state.matrix);
 
     // 4. Notify UI listeners of step change & progress
     if (this.onStepChange) {

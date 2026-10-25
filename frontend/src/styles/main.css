@@ -1106,6 +1106,7 @@ body.is-resizing .main-content-area {
   background: rgba(255, 255, 255, 0.15);
 }
 
+.unit-cube-toggle,
 .ref-vectors-toggle {
   display: flex;
   align-items: center;
@@ -1121,6 +1122,7 @@ body.is-resizing .main-content-area {
   transition: all 0.15s;
 }
 
+.unit-cube-toggle:hover,
 .ref-vectors-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
