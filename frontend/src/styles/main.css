@@ -594,12 +594,202 @@ body.is-resizing .main-content-area {
   border-color: rgba(255, 255, 255, 0.25);
 }
 
+/* Angle Variable θ Configuration Card */
+.theta-config-card {
+  border-left: 3px solid var(--accent-purple);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(17, 24, 39, 0.95) 100%);
+  margin-top: 10px;
+}
+
+.card-icon.purple {
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--accent-purple);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.theta-unit-toggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.unit-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.unit-toggle-btn:hover {
+  color: #fff;
+}
+
+.unit-toggle-btn.active {
+  background: var(--accent-purple);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.theta-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.theta-field-row label {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent-purple);
+}
+
+.param-expr-input {
+  flex: 1;
+  min-width: 130px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  padding: 6px 10px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.param-expr-input:focus {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25);
+  background: #0f172a;
+}
+
+.param-expr-input.invalid {
+  border-color: var(--accent-rose) !important;
+  background: rgba(244, 63, 94, 0.12) !important;
+}
+
+.eval-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.theta-presets-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.preset-label-sm {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+
+.chip-theta {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+}
+
+.math-syntax-hint {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.math-syntax-hint code {
+  color: #7dd3fc;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+.expr-error-text {
+  font-size: 0.74rem;
+  color: var(--accent-rose);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Evaluated numerical matrix preview inside custom cards */
+.matrix-eval-preview {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  font-size: 0.74rem;
+}
+
+.matrix-eval-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.matrix-eval-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  text-align: center;
+  font-family: var(--font-mono);
+  color: #38bdf8;
+}
+
+.matrix-eval-cell {
+  background: rgba(56, 189, 248, 0.08);
+  padding: 3px 2px;
+  border-radius: 3px;
+  border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.angle-row-expr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.angle-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Section Header */
 .section-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 4px 2px;
+  margin-top: 10px;
 }
 
 .section-title-row h3 {
@@ -640,9 +830,9 @@ body.is-resizing .main-content-area {
   border-radius: var(--radius-sm);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   text-align: center;
-  padding: 7px 4px;
+  padding: 6px 3px;
   outline: none;
   transition: all 0.15s ease;
   width: 100%;

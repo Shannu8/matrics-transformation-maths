@@ -319,7 +319,8 @@ export class ReportBuilder {
     this.y = 50;
 
     // Overview Card / Experiment Summary (Clean 2-Column Responsive Key-Value Layout)
-    const cardH = 34;
+    const hasTheta = !!this.res.thetaConfig;
+    const cardH = hasTheta ? 44 : 34;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
     this.doc.setFont('helvetica', 'bold');
@@ -330,6 +331,7 @@ export class ReportBuilder {
     const midX = this.marginLeft + this.contentWidth / 2;
     const r1 = this.y + 16;
     const r2 = this.y + 26;
+    const r3 = this.y + 36;
 
     // Row 1, Col 1: Initial Vector
     this.doc.setFont('helvetica', 'normal');
@@ -374,6 +376,27 @@ export class ReportBuilder {
       this.drawBadge(`${condLabel} (κ=${cond < 1e4 ? cond.toFixed(1) : cond.toExponential(1)})`, midX + 38, r2, 'success');
     } else {
       this.drawBadge('SINGULAR (det=0)', midX + 38, r2, 'error');
+    }
+
+    // Row 3: Theta Angle Parameter Configuration (if present)
+    if (hasTheta) {
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.setFontSize(9);
+      this.doc.setTextColor(100, 116, 139);
+      this.doc.text('Angle Parameter θ:', this.marginLeft + 6, r3);
+      this.doc.setFont('courier', 'bold');
+      this.doc.setFontSize(9.5);
+      this.doc.setTextColor(...this.colors.brandBlue);
+      this.doc.text(`"${this.res.thetaConfig.expr}" (${this.res.thetaConfig.unit})`, this.marginLeft + 38, r3);
+
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.setFontSize(9);
+      this.doc.setTextColor(100, 116, 139);
+      this.doc.text('Evaluated θ:', midX + 6, r3);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setFontSize(9);
+      this.doc.setTextColor(...this.colors.primaryDark);
+      this.doc.text(`≈ ${this.res.thetaConfig.valueRad.toFixed(4)} rad (${this.res.thetaConfig.valueDeg.toFixed(1)}°)`, midX + 38, r3);
     }
 
     this.y += cardH + 10;
@@ -472,50 +495,139 @@ export class ReportBuilder {
       this.doc.text(`General Formula: v_${st.index} = ${st.name} · v_${idx === 0 ? '0' : idx}`, this.marginLeft, this.y);
       this.y += 6;
 
-      // 1. Matrix and Determinant Card
-      const cardH = 40;
+      // 1. Angle Parameter & Expression Evaluation Card (for rotation stages)
+      const hasAngle = !!(st.params && st.params.angleExpr);
+      if (hasAngle) {
+        this.checkPageBreak(25);
+        const angleExpr = st.params.angleExpr;
+        const angleUnit = st.params.angleUnit || 'rad';
+        const angleRad = st.params.angleRad !== undefined ? st.params.angleRad : (angleUnit === 'deg' ? (st.params.angleDeg || 0) * Math.PI / 180 : 0);
+        const angleDeg = st.params.angleDeg !== undefined ? st.params.angleDeg : (angleRad * 180 / Math.PI);
+        const cosVal = Math.cos(angleRad);
+        const sinVal = Math.sin(angleRad);
+
+        const angleCardH = 22;
+        this.drawCard(this.marginLeft, this.y, this.contentWidth, angleCardH, [240, 249, 255], [186, 230, 253]);
+
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9);
+        this.doc.setTextColor(...this.colors.brandBlue);
+        this.doc.text('ROTATION ANGLE & TRIGONOMETRIC PARAMETERS:', this.marginLeft + 6, this.y + 6);
+
+        this.doc.setFont('helvetica', 'normal');
+        this.doc.setFontSize(8.5);
+        this.doc.setTextColor(...this.colors.bodyText);
+        this.doc.text(`• Entered Angle: "${angleExpr}" (${angleUnit})`, this.marginLeft + 6, this.y + 11.5);
+        this.doc.text(`• Evaluated Angle: approximately ${angleRad.toFixed(6)} radians (${angleDeg.toFixed(2)}°)`, this.marginLeft + 6, this.y + 16.5);
+
+        this.doc.text(`• Rotation Parameters: cos(${angleExpr}) ≈ ${this.formatNum(cosVal, 4)},  sin(${angleExpr}) ≈ ${this.formatNum(sinVal, 4)}`, this.marginLeft + 90, this.y + 11.5);
+        this.doc.text(`• Internal Convention: Radians (Standard Right-Handed Rule)`, this.marginLeft + 90, this.y + 16.5);
+
+        this.y += angleCardH + 5;
+      }
+
+      // 2. Matrix and Determinant Card (supporting both symbolic expression grid and numerical evaluated matrix)
+      const hasSymbolicCells = st.matrixExpressions && st.matrixExpressions.some(e => {
+        const str = String(e).trim();
+        return isNaN(Number(str));
+      });
+
+      const cardH = hasSymbolicCells ? 46 : 40;
+      this.checkPageBreak(cardH + 10);
       this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
-      // Render Matrix Grid
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(9.5);
-      this.doc.setTextColor(...this.colors.primaryDark);
-      this.doc.text(`Matrix ${st.name} (3×3):`, this.marginLeft + 6, this.y + 7);
+      if (hasSymbolicCells) {
+        const exprs = st.matrixExpressions;
+        // Col 1: Entered Symbolic Expression Matrix
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.text(`Entered Expressions (${st.name}):`, this.marginLeft + 6, this.y + 7);
 
-      this.doc.setFont('courier', 'bold');
-      this.doc.setFontSize(9.5);
-      this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.setFont('courier', 'bold');
+        this.doc.setFontSize(8);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        const rowY = this.y + 13;
+        this.doc.text(`| ${exprs[0]}  ${exprs[1]}  ${exprs[2]} |`, this.marginLeft + 6, rowY);
+        this.doc.text(`| ${exprs[3]}  ${exprs[4]}  ${exprs[5]} |`, this.marginLeft + 6, rowY + 5.5);
+        this.doc.text(`| ${exprs[6]}  ${exprs[7]}  ${exprs[8]} |`, this.marginLeft + 6, rowY + 11);
 
-      const rowY = this.y + 14;
-      this.doc.text(`| ${this.formatNum(mat[0])}  ${this.formatNum(mat[1])}  ${this.formatNum(mat[2])} |`, this.marginLeft + 6, rowY);
-      this.doc.text(`| ${this.formatNum(mat[3])}  ${this.formatNum(mat[4])}  ${this.formatNum(mat[5])} |`, this.marginLeft + 6, rowY + 6);
-      this.doc.text(`| ${this.formatNum(mat[6])}  ${this.formatNum(mat[7])}  ${this.formatNum(mat[8])} |`, this.marginLeft + 6, rowY + 12);
+        // Col 2: Evaluated Numerical Matrix
+        const numColX = this.marginLeft + 64;
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9);
+        this.doc.setTextColor(...this.colors.brandBlue);
+        this.doc.text('Evaluated Matrix (C++ Engine):', numColX, this.y + 7);
 
-      // Determinant and Geometric Diagnostics
-      const diagX = this.marginLeft + 88;
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(9.5);
-      this.doc.setTextColor(...this.colors.primaryDark);
-      this.doc.text('Geometric Properties:', diagX, this.y + 7);
+        this.doc.setFont('courier', 'bold');
+        this.doc.setFontSize(8.5);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.text(`| ${this.formatNum(mat[0])}  ${this.formatNum(mat[1])}  ${this.formatNum(mat[2])} |`, numColX, rowY);
+        this.doc.text(`| ${this.formatNum(mat[3])}  ${this.formatNum(mat[4])}  ${this.formatNum(mat[5])} |`, numColX, rowY + 5.5);
+        this.doc.text(`| ${this.formatNum(mat[6])}  ${this.formatNum(mat[7])}  ${this.formatNum(mat[8])} |`, numColX, rowY + 11);
 
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.setFontSize(8.5);
-      this.doc.setTextColor(...this.colors.bodyText);
-      const detVal = st.inverse.determinant;
-      this.doc.text(`• Determinant det(${st.name}) = ${this.formatNum(detVal)}`, diagX, this.y + 14);
+        // Explanation Footer inside card
+        this.doc.setFont('helvetica', 'italic');
+        this.doc.setFontSize(7.5);
+        this.doc.setTextColor(100, 116, 139);
+        this.doc.text('* Mathematical expressions evaluated safely to IEEE-754 double precision floats before execution.', this.marginLeft + 6, this.y + 40);
 
-      let detMeaning = 'Preserves volume and orientation';
-      if (Math.abs(detVal) < 1e-6) detMeaning = 'Singular: collapses space (dimension lost)';
-      else if (Math.abs(Math.abs(detVal) - 1.0) < 1e-4) detMeaning = detVal < 0 ? 'Isometry with reflection (orientation reversed)' : 'Rigid isometry (preserves distance & volume)';
-      else detMeaning = detVal < 0 ? `Scales volume by |det|=${Math.abs(detVal).toFixed(2)} and reverses orientation` : `Scales volume by factor of ${detVal.toFixed(2)}`;
-      
-      this.doc.text(`  → ${detMeaning}`, diagX, this.y + 19);
-      this.doc.text(`• Vector Length: ${prevNorm.toFixed(3)} → ${outNorm.toFixed(3)} units`, diagX, this.y + 25);
-      this.doc.text(`• Length Ratio: ${(outNorm / Math.max(1e-9, prevNorm)).toFixed(3)}×`, diagX, this.y + 30);
+        // Col 3: Geometric Diagnostics
+        const diagX = this.marginLeft + 120;
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.text('Properties:', diagX, this.y + 7);
+
+        this.doc.setFont('helvetica', 'normal');
+        this.doc.setFontSize(8);
+        this.doc.setTextColor(...this.colors.bodyText);
+        const detVal = st.inverse.determinant;
+        this.doc.text(`• det(${st.name}) = ${this.formatNum(detVal)}`, diagX, this.y + 13);
+        this.doc.text(`• Length: ${prevNorm.toFixed(2)} → ${outNorm.toFixed(2)}`, diagX, this.y + 19);
+        this.doc.text(`• Ratio: ${(outNorm / Math.max(1e-9, prevNorm)).toFixed(2)}×`, diagX, this.y + 25);
+      } else {
+        // Standard numerical matrix display
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9.5);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.text(`Numerical Matrix ${st.name} (3×3):`, this.marginLeft + 6, this.y + 7);
+
+        this.doc.setFont('courier', 'bold');
+        this.doc.setFontSize(9.5);
+        this.doc.setTextColor(...this.colors.primaryDark);
+
+        const rowY = this.y + 14;
+        this.doc.text(`| ${this.formatNum(mat[0])}  ${this.formatNum(mat[1])}  ${this.formatNum(mat[2])} |`, this.marginLeft + 6, rowY);
+        this.doc.text(`| ${this.formatNum(mat[3])}  ${this.formatNum(mat[4])}  ${this.formatNum(mat[5])} |`, this.marginLeft + 6, rowY + 6);
+        this.doc.text(`| ${this.formatNum(mat[6])}  ${this.formatNum(mat[7])}  ${this.formatNum(mat[8])} |`, this.marginLeft + 6, rowY + 12);
+
+        // Determinant and Geometric Diagnostics
+        const diagX = this.marginLeft + 88;
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setFontSize(9.5);
+        this.doc.setTextColor(...this.colors.primaryDark);
+        this.doc.text('Geometric Properties:', diagX, this.y + 7);
+
+        this.doc.setFont('helvetica', 'normal');
+        this.doc.setFontSize(8.5);
+        this.doc.setTextColor(...this.colors.bodyText);
+        const detVal = st.inverse.determinant;
+        this.doc.text(`• Determinant det(${st.name}) = ${this.formatNum(detVal)}`, diagX, this.y + 14);
+
+        let detMeaning = 'Preserves volume and orientation';
+        if (Math.abs(detVal) < 1e-6) detMeaning = 'Singular: collapses space (dimension lost)';
+        else if (Math.abs(Math.abs(detVal) - 1.0) < 1e-4) detMeaning = detVal < 0 ? 'Isometry with reflection (orientation reversed)' : 'Rigid isometry (preserves distance & volume)';
+        else detMeaning = detVal < 0 ? `Scales volume by |det|=${Math.abs(detVal).toFixed(2)} and reverses orientation` : `Scales volume by factor of ${detVal.toFixed(2)}`;
+        
+        this.doc.text(`  → ${detMeaning}`, diagX, this.y + 19);
+        this.doc.text(`• Vector Length: ${prevNorm.toFixed(3)} → ${outNorm.toFixed(3)} units`, diagX, this.y + 25);
+        this.doc.text(`• Length Ratio: ${(outNorm / Math.max(1e-9, prevNorm)).toFixed(3)}×`, diagX, this.y + 30);
+      }
 
       this.y += cardH + 6;
 
-      // 2. Step-by-Step Row-by-Column Calculations
+      // 3. Step-by-Step Row-by-Column Calculations
       this.checkPageBreak(40);
       this.doc.setFont('helvetica', 'bold');
       this.doc.setFontSize(10);
@@ -547,9 +659,13 @@ export class ReportBuilder {
 
       this.y += calcBoxH + 6;
 
+      const exprExplainNote = (hasAngle || hasSymbolicCells)
+        ? ` Expressions were evaluated numerically prior to calculation without symbolic CAS overhead. Dot product of matrix rows with incoming vector v_${idx === 0 ? '0' : idx} produces v_${st.index} = [${outV.map(n => n.toFixed(3)).join(', ')}]ᵀ.`
+        : ` Notice that each coordinate is calculated by taking the dot product of one matrix row with the incoming vector v_${idx === 0 ? '0' : idx}. The resulting vector is v_${st.index} = [${outV.map(n => n.toFixed(3)).join(', ')}]ᵀ.`;
+
       this.renderTutorNote(
-        `Notice that each coordinate is calculated by taking the dot product of one matrix row with the incoming vector v_${idx === 0 ? '0' : idx}. The resulting vector is v_${st.index} = [${outV.map(n => n.toFixed(3)).join(', ')}]ᵀ.`,
-        `STAGE ${st.index} RESULT`
+        exprExplainNote,
+        `STAGE ${st.index} RESULT & EVALUATION`
       );
 
       // Dedicated Large Screenshot for this stage

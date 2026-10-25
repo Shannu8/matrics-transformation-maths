@@ -244,12 +244,25 @@ export class ResultsPanel {
       const borderColor = colors[idx] || 'var(--accent-blue)';
       const prevV = idx === 0 ? res.initialVector : res.steps[idx - 1].outputVector;
 
-      html += `
+        const hasAngle = !!(st.params && st.params.angleExpr);
+        let angleInfo = '';
+        if (hasAngle) {
+          const r = st.params.angleRad !== undefined ? st.params.angleRad : 0;
+          const d = st.params.angleDeg !== undefined ? st.params.angleDeg : (r * 180 / Math.PI);
+          angleInfo = `
+            <div style="font-size:0.75rem; color:var(--accent-cyan); margin-bottom:6px; background:rgba(14,165,233,0.08); padding:4px 8px; border-radius:4px;">
+              Angle: <strong>${st.params.angleExpr}</strong> (${st.params.angleUnit || 'rad'}) ≈ ${r.toFixed(4)} rad (${d.toFixed(1)}°) | cos ≈ ${Math.cos(r).toFixed(3)}, sin ≈ ${Math.sin(r).toFixed(3)}
+            </div>
+          `;
+        }
+
+        html += `
         <div class="result-card" style="border-left: 4px solid ${borderColor};">
           <div class="result-card-header">
             <h4>Step ${st.index}: Apply ${st.name}</h4>
             <span class="metric-pill">v${st.index} = ${st.name} · v${idx === 0 ? '₀' : idx}</span>
           </div>
+          ${angleInfo}
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:8px;">
             <div>
               <div style="font-size:0.75rem; color:#9ca3af; margin-bottom:4px;">Matrix ${st.name}:</div>

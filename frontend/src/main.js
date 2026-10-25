@@ -167,9 +167,31 @@ class App {
     if (errorBanner) errorBanner.classList.add('hidden');
 
     const v0 = this.inputsManager.getVector();
-    const { list, names } = this.inputsManager.getMatrices();
+    const { list, names, details } = this.inputsManager.getMatrices();
 
     const res = this.engineClient.execute(list, names, v0);
+
+    // Attach theta config & expression details if available
+    if (res) {
+      res.thetaConfig = {
+        expr: this.inputsManager.thetaExpr,
+        unit: this.inputsManager.thetaUnit,
+        valueRad: this.inputsManager.getThetaRad(),
+        valueDeg: (this.inputsManager.getThetaRad() * 180 / Math.PI)
+      };
+
+      if (details && res.steps) {
+        res.steps.forEach((st, idx) => {
+          if (details[idx]) {
+            st.details = details[idx];
+            st.matrixExpressions = details[idx].matrixExpressions;
+            st.type = details[idx].type;
+            st.params = details[idx].params;
+          }
+        });
+      }
+    }
+
     this.currentResult = res;
 
     if (!res.success) {

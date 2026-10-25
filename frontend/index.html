@@ -121,16 +121,50 @@
                 <div class="vector-input-grid">
                   <div class="coord-field">
                     <label for="vec-x">x</label>
-                    <input type="number" id="vec-x" value="1.0" step="0.5" />
+                    <input type="text" id="vec-x" value="1.0" placeholder="e.g. 1.0, sqrt(2)" title="Enter number or expression" />
                   </div>
                   <div class="coord-field">
                     <label for="vec-y">y</label>
-                    <input type="number" id="vec-y" value="1.0" step="0.5" />
+                    <input type="text" id="vec-y" value="1.0" placeholder="e.g. 1.0, cos(theta)" title="Enter number or expression" />
                   </div>
                   <div class="coord-field">
                     <label for="vec-z">z</label>
-                    <input type="number" id="vec-z" value="1.0" step="0.5" />
+                    <input type="text" id="vec-z" value="1.0" placeholder="e.g. 1.0, sin(pi/4)" title="Enter number or expression" />
                   </div>
+                </div>
+              </div>
+
+              <!-- Angle Variable θ Definition Card -->
+              <div class="control-card theta-config-card">
+                <div class="card-header">
+                  <div class="card-title">
+                    <span class="card-icon purple">θ</span>
+                    <h2>Angle Parameter θ</h2>
+                  </div>
+                  <div class="theta-unit-toggle" role="radiogroup" aria-label="Angle Unit">
+                    <button type="button" class="unit-toggle-btn active" id="btn-unit-rad" data-unit="rad" title="Interpret angle in Radians (default)">Rad</button>
+                    <button type="button" class="unit-toggle-btn" id="btn-unit-deg" data-unit="deg" title="Interpret angle in Degrees">Deg</button>
+                  </div>
+                </div>
+                <div class="theta-input-group">
+                  <div class="theta-field-row">
+                    <label for="input-theta-expr">θ =</label>
+                    <input type="text" id="input-theta-expr" class="param-expr-input" value="pi/4" placeholder="e.g. pi/4, theta/2, 45, pi/3" title="Enter mathematical expression for theta" />
+                    <span id="theta-eval-badge" class="eval-badge">≈ 0.7854 rad (45.0°)</span>
+                  </div>
+                  <div class="theta-presets-chips">
+                    <span class="preset-label-sm">Quick θ:</span>
+                    <button type="button" class="chip-btn chip-theta" data-val="0">0</button>
+                    <button type="button" class="chip-btn chip-theta" data-val="pi/6">π/6 (30°)</button>
+                    <button type="button" class="chip-btn chip-theta" data-val="pi/4">π/4 (45°)</button>
+                    <button type="button" class="chip-btn chip-theta" data-val="pi/3">π/3 (60°)</button>
+                    <button type="button" class="chip-btn chip-theta" data-val="pi/2">π/2 (90°)</button>
+                    <button type="button" class="chip-btn chip-theta" data-val="pi">π (180°)</button>
+                  </div>
+                  <div class="math-syntax-hint">
+                    Syntax: <code>π</code>, <code>pi</code>, <code>θ</code>, <code>theta</code>, <code>sin(θ)</code>, <code>cos(θ)</code>, <code>tan(θ)</code>, <code>sqrt(2)</code>, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code>
+                  </div>
+                  <div id="theta-error-msg" class="expr-error-text hidden"></div>
                 </div>
               </div>
 
