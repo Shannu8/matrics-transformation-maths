@@ -1384,3 +1384,299 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* =========================================================
+   DYNAMIC TRANSFORMATION CARDS & PIPELINE CONTROLS
+   ========================================================= */
+.section-title-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-badge {
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.transformation-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.trans-enable-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.trans-enable-toggle input[type="checkbox"] {
+  accent-color: var(--accent-cyan);
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.trans-stage-title {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 6px;
+}
+
+.matrix-card.is-disabled {
+  opacity: 0.45;
+  border-style: dashed;
+  filter: grayscale(0.6);
+}
+
+.card-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+}
+
+.preset-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-delete-trans:hover:not(:disabled) {
+  color: var(--accent-rose);
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.add-trans-bottom-row {
+  margin: 10px 0 6px;
+}
+
+.btn-add-trans-card {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-style: dashed;
+  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+}
+
+.btn-add-trans-card:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--accent-cyan);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   COMPREHENSIVE MOBILE RESPONSIVENESS (≤ 768px & ≤ 480px)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  /* Header adjustments */
+  .app-header {
+    height: 52px;
+    padding: 6px 12px;
+  }
+
+  .brand-text h1 {
+    font-size: 0.85rem;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .status-badge {
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+
+  .status-badge .status-text {
+    display: none;
+  }
+
+  #btn-header-pdf {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+  }
+
+  #btn-header-pdf span {
+    display: none;
+  }
+
+  /* Pull-Out Left Drawer on Mobile */
+  .left-drawer {
+    width: 100vw;
+    max-width: 100vw;
+    top: 52px;
+  }
+
+  .drawer-handle-left.drawer-open {
+    display: none; /* User uses the close button inside the drawer */
+  }
+
+  .drawer-tabs-nav {
+    padding: 2px 8px 0;
+    gap: 4px;
+  }
+
+  .drawer-tab-btn {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    min-height: 44px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Floating Viewport Controls */
+  .floating-viewport-controls {
+    top: 8px;
+    right: 8px;
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .cam-btn {
+    min-height: 34px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+  }
+
+  .unit-cube-toggle,
+  .ref-vectors-toggle {
+    padding: 4px 6px;
+    font-size: 0.7rem;
+  }
+
+  .viewport-divider {
+    display: none;
+  }
+
+  /* Viewport Legend */
+  .viewport-overlay-legend {
+    left: 10px;
+    top: 8px;
+    max-width: calc(100vw - 20px);
+    font-size: 0.72rem;
+    padding: 8px 10px;
+  }
+
+  /* Animation Control Bar */
+  .animation-control-bar {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    width: calc(100vw - 16px);
+    padding: 8px 10px;
+  }
+
+  .anim-expanded-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .playback-buttons {
+    order: 1;
+  }
+
+  .playback-buttons .btn {
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  .speed-control-wrapper {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .step-progress-wrapper {
+    order: 3;
+    min-width: 100%;
+    margin-top: 4px;
+  }
+
+  /* Matrix Inputs & Touch Targets */
+  .matrix-cell {
+    min-height: 42px;
+    font-size: 1rem;
+    padding: 6px 2px;
+  }
+
+  .coord-field input {
+    font-size: 1rem;
+    min-height: 38px;
+  }
+
+  .chip-btn {
+    min-height: 34px;
+    padding: 4px 10px;
+  }
+
+  .example-buttons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-large {
+    min-height: 48px;
+  }
+
+  /* Results Tables & Cards on Mobile */
+  .matrix-display-box {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-text h1 {
+    font-size: 0.78rem;
+    max-width: 150px;
+  }
+
+  .floating-viewport-controls {
+    justify-content: flex-end;
+  }
+
+  .camera-controls {
+    flex-wrap: wrap;
+  }
+
+  .matrix-grid-container {
+    gap: 4px;
+    padding: 6px;
+  }
+}
+

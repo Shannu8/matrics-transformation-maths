@@ -312,13 +312,15 @@ void testPipelineComposition() {
 void testErrorHandlingAndNonFinite() {
     std::cout << "[+] Running Error Handling and Non-Finite Input Tests...\n";
 
-    // 1. Invalid sequence count (n=1 and n=4)
+    // 1. Invalid sequence count (n=0 rejected, n=4 supported)
     Matrix3x3 T = Matrix3x3::identity();
-    PipelineResult res1 = TransformationPipeline::execute({T}, {"T1"}, Vector3(1, 1, 1));
-    TEST_ASSERT(!res1.success, "Reject n=1 transformations (requires n in {2, 3})");
+    PipelineResult res0 = TransformationPipeline::execute({}, {}, Vector3(1, 1, 1));
+    TEST_ASSERT(!res0.success, "Reject n=0 transformations (requires n >= 1)");
 
     PipelineResult res4 = TransformationPipeline::execute({T, T, T, T}, {"T1", "T2", "T3", "T4"}, Vector3(1, 1, 1));
-    TEST_ASSERT(!res4.success, "Reject n=4 transformations (requires n in {2, 3})");
+    TEST_ASSERT(res4.success, "Support n=4 transformations in dynamic pipeline");
+    TEST_ASSERT(res4.steps.size() == 4, "n=4 pipeline has 4 steps");
+    TEST_ASSERT(res4.compositionVerified, "n=4 composition verified");
 
     // 2. NaN input in vector
     Vector3 nanV(1.0, std::numeric_limits<double>::quiet_NaN(), 3.0);

@@ -136,101 +136,31 @@
 
               <!-- Transformations Section Header -->
               <div class="section-title-row">
-                <h3>Transformations (Order: T₁ → T₂ → T₃)</h3>
-                <div class="toggle-control">
-                  <input type="checkbox" id="toggle-t3" />
-                  <label for="toggle-t3">Enable T₃ (3rd step)</label>
+                <div class="section-title-meta">
+                  <h3>Transformations Pipeline</h3>
+                  <span id="trans-order-badge" class="order-badge">Composition: C = Tₙ ··· T₁</span>
                 </div>
+                <button id="btn-add-transformation" class="btn btn-outline btn-compact btn-add-trans" title="Add another transformation stage">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  <span>Add Transformation</span>
+                </button>
               </div>
 
-              <!-- T1 Card -->
-              <div class="control-card matrix-card" id="card-t1">
-                <div class="card-header">
-                  <div class="card-title">
-                    <span class="card-badge badge-t1">T₁</span>
-                    <h2>First Transformation</h2>
-                  </div>
-                  <div class="preset-dropdown-wrapper">
-                    <select id="preset-select-t1" class="preset-select">
-                      <option value="">Apply Preset...</option>
-                      <option value="scale">Scaling (sx, sy, sz)</option>
-                      <option value="rotateX">Rotation about X</option>
-                      <option value="rotateY">Rotation about Y</option>
-                      <option value="rotateZ">Rotation about Z</option>
-                      <option value="reflectXY">Reflection XY (z → -z)</option>
-                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
-                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
-                      <option value="shear">Shear</option>
-                      <option value="identity">Identity</option>
-                    </select>
-                  </div>
-                </div>
-                <div id="preset-params-t1" class="preset-params-box hidden"></div>
-                <div class="matrix-grid-container" id="grid-t1"></div>
-                <div class="matrix-diagnostics" id="diag-t1">
-                  <span class="det-label">det(T₁) = <strong class="det-val">1.0</strong></span>
-                  <span class="status-pill status-ok">Invertible</span>
-                </div>
-              </div>
+              <!-- Dynamic Container for Transformation Cards -->
+              <div id="transformation-cards-container" class="transformation-cards-list"></div>
 
-              <!-- T2 Card -->
-              <div class="control-card matrix-card" id="card-t2">
-                <div class="card-header">
-                  <div class="card-title">
-                    <span class="card-badge badge-t2">T₂</span>
-                    <h2>Second Transformation</h2>
-                  </div>
-                  <div class="preset-dropdown-wrapper">
-                    <select id="preset-select-t2" class="preset-select">
-                      <option value="">Apply Preset...</option>
-                      <option value="scale">Scaling (sx, sy, sz)</option>
-                      <option value="rotateX">Rotation about X</option>
-                      <option value="rotateY">Rotation about Y</option>
-                      <option value="rotateZ">Rotation about Z</option>
-                      <option value="reflectXY">Reflection XY (z → -z)</option>
-                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
-                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
-                      <option value="shear">Shear</option>
-                      <option value="identity">Identity</option>
-                    </select>
-                  </div>
-                </div>
-                <div id="preset-params-t2" class="preset-params-box hidden"></div>
-                <div class="matrix-grid-container" id="grid-t2"></div>
-                <div class="matrix-diagnostics" id="diag-t2">
-                  <span class="det-label">det(T₂) = <strong class="det-val">1.0</strong></span>
-                  <span class="status-pill status-ok">Invertible</span>
-                </div>
-              </div>
-
-              <!-- T3 Card (Optional) -->
-              <div class="control-card matrix-card hidden" id="card-t3">
-                <div class="card-header">
-                  <div class="card-title">
-                    <span class="card-badge badge-t3">T₃</span>
-                    <h2>Third Transformation</h2>
-                  </div>
-                  <div class="preset-dropdown-wrapper">
-                    <select id="preset-select-t3" class="preset-select">
-                      <option value="">Apply Preset...</option>
-                      <option value="scale">Scaling (sx, sy, sz)</option>
-                      <option value="rotateX">Rotation about X</option>
-                      <option value="rotateY">Rotation about Y</option>
-                      <option value="rotateZ">Rotation about Z</option>
-                      <option value="reflectXY">Reflection XY (z → -z)</option>
-                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
-                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
-                      <option value="shear">Shear</option>
-                      <option value="identity">Identity</option>
-                    </select>
-                  </div>
-                </div>
-                <div id="preset-params-t3" class="preset-params-box hidden"></div>
-                <div class="matrix-grid-container" id="grid-t3"></div>
-                <div class="matrix-diagnostics" id="diag-t3">
-                  <span class="det-label">det(T₃) = <strong class="det-val">1.0</strong></span>
-                  <span class="status-pill status-ok">Invertible</span>
-                </div>
+              <!-- Convenient Bottom Add Button -->
+              <div class="add-trans-bottom-row">
+                <button id="btn-add-transformation-bottom" class="btn btn-outline btn-add-trans-card">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  <span>+ Add Transformation to Sequence</span>
+                </button>
               </div>
 
               <!-- Reference Examples Quick Load -->

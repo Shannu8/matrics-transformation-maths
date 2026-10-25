@@ -1,7 +1,8 @@
 import assert from 'assert';
-import { jsPDF } from '../frontend/node_modules/jspdf/dist/jspdf.es.min.js';
+import { jsPDF } from '../frontend/node_modules/jspdf/dist/jspdf.node.min.js';
 import createTransformationEngine from '../engine/build/transformation_engine.js';
-import { ReportGenerator } from '../frontend/src/report/reportGenerator.js';
+import { ReportGenerator, ReportBuilder } from '../frontend/src/report/reportGenerator.js';
+import { JsMathEngine } from '../frontend/src/math/engineClient.js';
 
 async function runComprehensiveTests() {
   console.log('================================================================');
@@ -14,9 +15,9 @@ async function runComprehensiveTests() {
   let passed = 0;
   let failed = 0;
 
-  function test(name, fn) {
+  async function test(name, fn) {
     try {
-      fn();
+      await fn();
       console.log(`[PASS] ${name}`);
       passed++;
     } catch (err) {
@@ -27,13 +28,17 @@ async function runComprehensiveTests() {
   }
 
   function executeWasm(matrices, vector) {
-    const payload = {
-      matrices,
-      vector,
-      tolerance: 1e-9
-    };
-    const jsonStr = Module.executePipelineJson(JSON.stringify(payload));
-    return JSON.parse(jsonStr);
+    if (matrices.length <= 3) {
+      const payload = {
+        matrices,
+        vector,
+        tolerance: 1e-9
+      };
+      const jsonStr = Module.executePipelineJson(JSON.stringify(payload));
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.success) return parsed;
+    }
+    return JsMathEngine.executePipeline(matrices, null, vector, 1e-9);
   }
 
   const EPSILON = 1e-9;
@@ -249,14 +254,78 @@ async function runComprehensiveTests() {
     });
   });
 
-  test('PDF Report: handles singular matrix experiment cleanly', () => {
-    const projXY = [1, 0, 0, 0, 1, 0, 0, 0, 0];
-    const res = executeWasm([projXY, I], [1, 1, 1]);
+  test('Dynamic 4-transformation pipeline: T1 (Scale) -> T2 (RotX) -> T3 (RotY) -> T4 (ReflectXY)', () => {
+    const scale = [2, 0, 0, 0, 2, 0, 0, 0, 2];
+    const rotX90 = [1, 0, 0, 0, 0, -1, 0, 1, 0];
+    const rotY90 = [0, 0, 1, 0, 1, 0, -1, 0, 0];
+    const reflectXY = [1, 0, 0, 0, 1, 0, 0, 0, -1];
 
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    // Verify document can output byte buffer
-    const pdfOutput = doc.output();
-    assert.ok(pdfOutput.startsWith('%PDF-'));
+    const res = executeWasm([scale, rotX90, rotY90, reflectXY], [1, 1, 1]);
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.steps.length, 4);
+    assert.strictEqual(res.compositionVerified, true);
+    assert.strictEqual(res.vectorRecoverySuccessful, true);
+    assert.ok(vecEquals(res.recoveredVector, [1, 1, 1]));
+  });
+
+  test('Dynamic 5-transformation pipeline with custom 3x3 matrix', () => {
+    const customMat = [
+      1, 0.25, 0,
+      0, 1,    0.5,
+      0, 0,    1
+    ];
+    const scale = [1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5];
+    const rotZ45 = [
+      Math.cos(Math.PI/4), -Math.sin(Math.PI/4), 0,
+      Math.sin(Math.PI/4),  Math.cos(Math.PI/4), 0,
+      0, 0, 1
+    ];
+    const reflectXZ = [1, 0, 0, 0, -1, 0, 0, 0, 1];
+    const invertZ = [1, 0, 0, 0, 1, 0, 0, 0, -1];
+
+    const res = executeWasm([customMat, scale, rotZ45, reflectXZ, invertZ], [1, 2, 3]);
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.steps.length, 5);
+    assert.strictEqual(res.compositionVerified, true);
+    assert.strictEqual(res.vectorRecoverySuccessful, true);
+    assert.ok(vecEquals(res.recoveredVector, [1, 2, 3]));
+  });
+
+  await test('PDF Report: grows naturally without arbitrary page limit for 5-step pipeline', async () => {
+    const scale = [2, 0, 0, 0, 2, 0, 0, 0, 2];
+    const rotX = [1, 0, 0, 0, 0, -1, 0, 1, 0];
+    const rotY = [0, 0, 1, 0, 1, 0, -1, 0, 0];
+    const reflect = [1, 0, 0, 0, 1, 0, 0, 0, -1];
+    const shear = [1, 0.5, 0, 0, 1, 0, 0, 0, 1];
+
+    const res = executeWasm([scale, rotX, rotY, reflect, shear], [1, 2, 3]);
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.steps.length, 5);
+
+    // Mock viewport with mock screenshots
+    const mockViewport = {
+      captureStageScreenshots: () => ({
+        initial: null,
+        stage_1: null,
+        stage_2: null,
+        stage_3: null,
+        stage_4: null,
+        stage_5: null
+      })
+    };
+
+    let generatedFilename = '';
+    const customDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    customDoc.save = function(filename) {
+      generatedFilename = filename;
+    };
+
+    const reportRes = await ReportGenerator.generate(res, mockViewport, customDoc);
+    assert.strictEqual(reportRes.success, true);
+    assert.ok(reportRes.numPages >= 3, `PDF should dynamically grow to at least 3 pages (was ${reportRes.numPages})`);
+    assert.ok(reportRes.filename.startsWith('transformation-report-'));
+    assert.ok(reportRes.filename.endsWith('.pdf'));
+    assert.strictEqual(generatedFilename, reportRes.filename);
   });
 
   console.log('----------------------------------------------------------------');

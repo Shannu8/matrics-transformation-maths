@@ -97,7 +97,7 @@ export class ResultsPanel {
         <!-- Composed Matrix Card -->
         <div class="result-card">
           <div class="result-card-header">
-            <h4>Composed Matrix C = ${res.steps.length === 3 ? 'T₃ · T₂ · T₁' : 'T₂ · T₁'}</h4>
+            <h4>Composed Matrix C = ${res.steps.map(s => s.name).reverse().join(' · ')}</h4>
             <span class="metric-pill">${res.engineSource || 'Engine'}</span>
           </div>
           ${this.formatMatrixGrid(res.composedMatrix)}
@@ -193,7 +193,7 @@ export class ResultsPanel {
       <div class="result-card">
         <div class="result-card-header">
           <h4>Product of Individual Inverses</h4>
-          <span class="metric-pill">${res.steps.length === 3 ? 'T₁⁻¹ · T₂⁻¹ · T₃⁻¹' : 'T₁⁻¹ · T₂⁻¹'}</span>
+          <span class="metric-pill">${res.steps.map(s => `${s.name}⁻¹`).join(' · ')}</span>
         </div>
         ${res.productOfInverses ? this.formatMatrixGrid(res.productOfInverses) : '<p style="color:#f43f5e;">Cannot compute product; one or more transformations are singular.</p>'}
         <div class="verification-stat-row">

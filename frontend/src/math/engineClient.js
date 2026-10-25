@@ -239,8 +239,8 @@ export const JsMathEngine = {
 
   executePipeline(matrices, names, v0, tolerance = 1e-9) {
     const n = matrices.length;
-    if (n < 2 || n > 3) {
-      return { success: false, errorMessage: 'Transformation count must be exactly 2 or 3.' };
+    if (n < 1) {
+      return { success: false, errorMessage: 'At least one transformation matrix is required.' };
     }
     for (const c of v0) {
       if (!Number.isFinite(c)) return { success: false, errorMessage: 'Initial vector has non-finite values.' };
@@ -258,19 +258,17 @@ export const JsMathEngine = {
       const invRes = this.invertGaussian(matrices[i]);
       steps.push({
         index: i + 1,
-        name: names[i] || `T${i + 1}`,
+        name: (names && names[i]) ? names[i] : `T${i + 1}`,
         matrix: matrices[i],
         inverse: invRes,
         outputVector: [...curV]
       });
     }
 
-    let composedMatrix;
-    if (n === 2) {
-      composedMatrix = this.multiplyMat(matrices[1], matrices[0]);
-    } else {
-      const T21 = this.multiplyMat(matrices[1], matrices[0]);
-      composedMatrix = this.multiplyMat(matrices[2], T21);
+    // Composed matrix C = T_n * ... * T_2 * T_1
+    let composedMatrix = [...matrices[0]];
+    for (let i = 1; i < n; i++) {
+      composedMatrix = this.multiplyMat(matrices[i], composedMatrix);
     }
 
     const composedVector = this.multiplyVec(composedMatrix, v0);
@@ -288,11 +286,9 @@ export const JsMathEngine = {
     let productOfInverses = null;
     let productOfInversesValid = steps.every(s => s.inverse.success);
     if (productOfInversesValid) {
-      if (n === 2) {
-        productOfInverses = this.multiplyMat(steps[0].inverse.inverse, steps[1].inverse.inverse);
-      } else {
-        const inv12 = this.multiplyMat(steps[0].inverse.inverse, steps[1].inverse.inverse);
-        productOfInverses = this.multiplyMat(inv12, steps[2].inverse.inverse);
+      productOfInverses = [...steps[0].inverse.inverse];
+      for (let i = 1; i < n; i++) {
+        productOfInverses = this.multiplyMat(productOfInverses, steps[i].inverse.inverse);
       }
     }
 

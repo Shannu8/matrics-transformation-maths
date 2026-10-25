@@ -115,11 +115,11 @@ public:
         PipelineResult res;
         res.initialVector = v0;
 
-        // 1. Validate transformation count (Handbook Section 11.4: n in {2, 3})
+        // 1. Validate transformation count: at least 1 transformation required
         size_t n = transformations.size();
-        if (n < 2 || n > 3) {
+        if (n < 1) {
             res.success = false;
-            res.errorMessage = "Transformation count must be exactly 2 or 3 (Handbook Section 11.4).";
+            res.errorMessage = "At least one transformation matrix is required.";
             return res;
         }
 
@@ -161,15 +161,10 @@ public:
         }
         res.finalSequentialVector = currentV;
 
-        // 5. Composed matrix calculation
-        // C = T_n * ... * T_2 * T_1
-        // For n=2: C = T2 * T1
-        // For n=3: C = T3 * T2 * T1 = T3 * (T2 * T1)
-        if (n == 2) {
-            res.composedMatrix = transformations[1] * transformations[0];
-        } else { // n == 3
-            Matrix3x3 T21 = transformations[1] * transformations[0];
-            res.composedMatrix = transformations[2] * T21;
+        // 5. Composed matrix calculation: C = T_n * ... * T_2 * T_1
+        res.composedMatrix = transformations[0];
+        for (size_t i = 1; i < n; ++i) {
+            res.composedMatrix = transformations[i] * res.composedMatrix;
         }
 
         // Composed vector: C * v
@@ -185,7 +180,7 @@ public:
         // 7. Inversion of composed matrix C
         res.composedInverseResult = InverseSolver::invertGaussian(res.composedMatrix);
 
-        // 8. Product of individual inverses: C^-1 = T_1^-1 * T_2^-1 (* T_3^-1)
+        // 8. Product of individual inverses: (T_n * ... * T_1)^-1 = T_1^-1 * ... * T_n^-1
         bool allIndividualInvertible = true;
         for (size_t i = 0; i < n; ++i) {
             if (!res.steps[i].inverseResult.success) {
@@ -196,11 +191,9 @@ public:
 
         if (allIndividualInvertible) {
             res.productOfInversesValid = true;
-            if (n == 2) {
-                res.productOfInverses = res.steps[0].inverseResult.inverse * res.steps[1].inverseResult.inverse;
-            } else { // n == 3
-                Matrix3x3 inv12 = res.steps[0].inverseResult.inverse * res.steps[1].inverseResult.inverse;
-                res.productOfInverses = inv12 * res.steps[2].inverseResult.inverse;
+            res.productOfInverses = res.steps[0].inverseResult.inverse;
+            for (size_t i = 1; i < n; ++i) {
+                res.productOfInverses = res.productOfInverses * res.steps[i].inverseResult.inverse;
             }
 
             if (res.composedInverseResult.success) {

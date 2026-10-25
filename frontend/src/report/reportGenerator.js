@@ -4,7 +4,8 @@ import { jsPDF } from 'jspdf';
  * Educational PDF Report Generator
  * Generates comprehensive, beautifully formatted A4 PDF reports
  * with conversational tutoring, step-by-step arithmetic,
- * matrix composition and inverse verification, and authentic Three.js screenshots.
+ * full-width authentic Three.js screenshots, dynamic pagination (no arbitrary page limits),
+ * and robust mobile/desktop download handling.
  */
 export class ReportGenerator {
   /**
@@ -13,7 +14,7 @@ export class ReportGenerator {
    * @param {Object} viewport Viewport3D instance for capturing authentic screenshots
    * @returns {Promise<boolean>} Success status
    */
-  static async generate(pipelineResult, viewport) {
+  static async generate(pipelineResult, viewport, customDoc = null) {
     if (!pipelineResult) {
       throw new Error('No transformation experiment data available to generate report.');
     }
@@ -28,8 +29,8 @@ export class ReportGenerator {
       console.warn('Screenshot capture warning:', err);
     }
 
-    // 2. Instantiate jsPDF (A4 portrait, mm units)
-    const doc = new jsPDF({
+    // 2. Instantiate jsPDF (A4 portrait, mm units) or use provided instance
+    const doc = customDoc || new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
@@ -43,28 +44,57 @@ export class ReportGenerator {
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `transformation-report-${dateStr}.pdf`;
 
-    doc.save(filename);
-    return true;
+    try {
+      doc.save(filename);
+    } catch (err) {
+      console.warn('Direct doc.save failed, falling back to Blob URL:', err);
+      try {
+        if (typeof document !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+          const blob = doc.output('blob');
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 1500);
+        }
+      } catch (blobErr) {
+        console.error('Blob URL fallback failed:', blobErr);
+        throw blobErr;
+      }
+    }
+
+    return {
+      success: true,
+      filename,
+      numPages: doc.internal.getNumberOfPages(),
+      doc
+    };
   }
 }
 
-class ReportBuilder {
+export class ReportBuilder {
   constructor(doc, result, screenshots) {
     this.doc = doc;
     this.res = result;
     this.screenshots = screenshots || {};
 
-    // Page Dimensions (A4 mm)
+    // Standard A4 Layout with 20 mm Margins
     this.pageWidth = 210;
     this.pageHeight = 297;
-    this.marginLeft = 18;
-    this.marginRight = 18;
+    this.marginLeft = 20;
+    this.marginRight = 20;
     this.marginTop = 20;
     this.marginBottom = 20;
-    this.contentWidth = this.pageWidth - this.marginLeft - this.marginRight; // 174 mm
+    this.contentWidth = this.pageWidth - this.marginLeft - this.marginRight; // exactly 170 mm
     this.y = this.marginTop;
 
-    // Harmonious Palette matching the Dark/Glassmorphism application
+    // Modern High-Contrast Palette
     this.colors = {
       primaryDark: [15, 23, 42],      // #0f172a Deep Slate
       secondaryDark: [30, 41, 59],    // #1e293b Slate 800
@@ -90,19 +120,24 @@ class ReportBuilder {
     this.renderSection5InverseVerification();
     this.renderSection6Reflections();
 
-    // Add running headers & footers across all pages
+    // Add running headers & footers across all generated pages
     this.renderRunningHeadersFooters();
   }
 
   // ==========================================
-  // Layout Helpers
+  // Layout & Spacing Helpers
   // ==========================================
 
   checkPageBreak(neededHeight) {
     if (this.y + neededHeight > this.pageHeight - this.marginBottom) {
       this.doc.addPage();
-      this.y = this.marginTop + 10; // Extra room for running header
+      this.y = this.marginTop + 8; // Room for running header
     }
+  }
+
+  forcePageBreak() {
+    this.doc.addPage();
+    this.y = this.marginTop + 8;
   }
 
   formatNum(num, decimals = 4) {
@@ -119,8 +154,8 @@ class ReportBuilder {
   drawCard(x, y, w, h, bgColor = this.colors.lightBg, borderColor = this.colors.cardBorder) {
     this.doc.setFillColor(...bgColor);
     this.doc.setDrawColor(...borderColor);
-    this.doc.setLineWidth(0.3);
-    this.doc.roundedRect(x, y, w, h, 2, 2, 'FD');
+    this.doc.setLineWidth(0.35);
+    this.doc.roundedRect(x, y, w, h, 2.5, 2.5, 'FD');
   }
 
   drawBadge(text, x, y, type = 'info') {
@@ -138,95 +173,119 @@ class ReportBuilder {
     }
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(8.5);
     const tw = this.doc.getTextWidth(text);
-    const bw = tw + 6;
-    const bh = 5;
+    const bw = tw + 7;
+    const bh = 5.5;
 
     this.doc.setFillColor(...bg);
     this.doc.setDrawColor(...fg);
-    this.doc.setLineWidth(0.2);
-    this.doc.roundedRect(x, y - 3.8, bw, bh, 1, 1, 'FD');
+    this.doc.setLineWidth(0.25);
+    this.doc.roundedRect(x, y - 4.2, bw, bh, 1.2, 1.2, 'FD');
 
     this.doc.setTextColor(...fg);
-    this.doc.text(text, x + 3, y - 0.3);
+    this.doc.text(text, x + 3.5, y - 0.2);
     return bw;
   }
 
   renderSectionHeading(title, subtitle = '') {
-    this.checkPageBreak(22);
+    this.checkPageBreak(30);
+
+    // Accent bar on left
     this.doc.setFillColor(...this.colors.primaryDark);
-    this.doc.rect(this.marginLeft, this.y, 3.5, 9, 'F');
+    this.doc.rect(this.marginLeft, this.y, 4, 10, 'F');
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(14);
+    this.doc.setFontSize(16);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text(title, this.marginLeft + 6, this.y + 6.5);
+    this.doc.text(title, this.marginLeft + 7, this.y + 7.5);
 
-    this.y += 11;
+    this.y += 13;
     if (subtitle) {
       this.doc.setFont('helvetica', 'normal');
-      this.doc.setFontSize(9.5);
+      this.doc.setFontSize(10.5);
       this.doc.setTextColor(...this.colors.bodyText);
       const lines = this.doc.splitTextToSize(subtitle, this.contentWidth);
       this.doc.text(lines, this.marginLeft, this.y);
-      this.y += lines.length * 4.5 + 3;
+      this.y += lines.length * 5 + 4;
     }
   }
 
-  renderTutorNote(text, icon = 'TIP') {
-    this.checkPageBreak(20);
+  renderTutorNote(text, icon = 'PEDAGOGICAL INSIGHT') {
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(9);
-    const lines = this.doc.splitTextToSize(text, this.contentWidth - 14);
-    const boxH = Math.max(12, lines.length * 4.2 + 8);
+    this.doc.setFontSize(9.5);
+    const lines = this.doc.splitTextToSize(text, this.contentWidth - 16);
+    const boxH = Math.max(16, lines.length * 4.6 + 10);
 
+    this.checkPageBreak(boxH + 6);
     this.drawCard(this.marginLeft, this.y, this.contentWidth, boxH, [240, 249, 255], [186, 230, 253]);
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(...this.colors.brandBlue);
-    this.doc.text(`TUTOR NOTE [${icon}]:`, this.marginLeft + 4, this.y + 5.5);
+    this.doc.text(`TUTOR NOTE [${icon}]:`, this.marginLeft + 6, this.y + 6.5);
 
     this.doc.setFont('helvetica', 'italic');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text(lines, this.marginLeft + 4, this.y + 10);
+    this.doc.text(lines, this.marginLeft + 6, this.y + 12);
 
-    this.y += boxH + 4;
+    this.y += boxH + 7;
   }
 
+  /**
+   * Prominently embeds a large, high-resolution Three.js scene screenshot
+   * spanning the full available content width (170 mm) without being shrunk.
+   */
   renderScreenshot(dataUrl, caption, stepLabel = '') {
     if (!dataUrl) return;
-    this.checkPageBreak(75);
 
-    const imgW = 120;
-    const imgH = 67.5; // 16:9 aspect ratio
-    const imgX = this.marginLeft + (this.contentWidth - imgW) / 2;
+    // Full content width screenshot (170 mm wide, 16:9 aspect ratio = 95.6 mm tall)
+    const imgW = this.contentWidth;
+    const imgH = imgW * (9 / 16);
+    const cardPadding = 3;
+    const totalBlockH = imgH + cardPadding * 2 + 14;
 
-    this.drawCard(imgX - 2, this.y - 2, imgW + 4, imgH + 14, [248, 250, 252], [203, 213, 225]);
+    this.checkPageBreak(totalBlockH);
+
+    // Frame Card
+    this.drawCard(
+      this.marginLeft,
+      this.y,
+      this.contentWidth,
+      imgH + cardPadding * 2 + 10,
+      [248, 250, 252],
+      [203, 213, 225]
+    );
 
     try {
-      this.doc.addImage(dataUrl, 'JPEG', imgX, this.y, imgW, imgH);
+      this.doc.addImage(
+        dataUrl,
+        'JPEG',
+        this.marginLeft + cardPadding,
+        this.y + cardPadding,
+        imgW - cardPadding * 2,
+        imgH
+      );
     } catch (e) {
       console.warn('Could not embed image:', e);
       return;
     }
 
-    // Step badge on screenshot
+    // Step badge in top-left
     if (stepLabel) {
-      this.drawBadge(stepLabel, imgX + 3, this.y + 6, 'info');
+      this.drawBadge(stepLabel, this.marginLeft + cardPadding + 4, this.y + cardPadding + 7, 'info');
     }
 
-    // Caption underneath
+    // Centered Caption underneath
     this.doc.setFont('helvetica', 'italic');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.bodyText);
     const capWidth = this.doc.getTextWidth(caption);
     const capX = this.marginLeft + (this.contentWidth - capWidth) / 2;
-    this.doc.text(caption, Math.max(this.marginLeft, capX), this.y + imgH + 6.5);
+    this.doc.text(caption, Math.max(this.marginLeft + 4, capX), this.y + imgH + cardPadding + 6.5);
 
-    this.y += imgH + 16;
+    this.y += totalBlockH + 4;
   }
 
   // ==========================================
@@ -236,103 +295,110 @@ class ReportBuilder {
   renderHeaderCover() {
     // Top banner
     this.doc.setFillColor(...this.colors.primaryDark);
-    this.doc.rect(0, 0, this.pageWidth, 36, 'F');
+    this.doc.rect(0, 0, this.pageWidth, 42, 'F');
 
-    // Title & subtitle
+    // Title
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(17);
+    this.doc.setFontSize(20);
     this.doc.setTextColor(255, 255, 255);
-    this.doc.text('3D TRANSFORMATION COMPOSITION & INVERSE REPORT', this.marginLeft, 16);
+    this.doc.text('3D TRANSFORMATION COMPOSITION & INVERSE REPORT', this.marginLeft, 18);
 
+    // Subtitle
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(11);
     this.doc.setTextColor(186, 230, 253);
-    this.doc.text('Linear Algebra Laboratory • Sequential Pipeline & Verification Suite', this.marginLeft, 24);
+    this.doc.text('Interactive Linear Algebra Laboratory • Sequential Pipeline Verification', this.marginLeft, 27);
 
-    this.doc.setFontSize(8.5);
+    // Date & Engine
+    this.doc.setFontSize(9);
     this.doc.setTextColor(148, 163, 184);
     const now = new Date();
     const dateFormatted = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString()}`;
-    this.doc.text(`Generated: ${dateFormatted} | Engine: ${this.res.engineSource || 'C++17 Wasm'}`, this.marginLeft, 31);
+    this.doc.text(`Generated: ${dateFormatted} • Mathematical Engine: ${this.res.engineSource || 'C++17 Wasm'}`, this.marginLeft, 35);
 
-    this.y = 44;
+    this.y = 50;
 
-    // Overview Card / Experiment Metadata
-    const cardH = 26;
+    // Overview Card / Experiment Summary (Clean 2-Column Responsive Key-Value Layout)
+    const cardH = 34;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
     this.doc.setFont('helvetica', 'bold');
+    this.doc.setFontSize(10.5);
+    this.doc.setTextColor(...this.colors.primaryDark);
+    this.doc.text('EXPERIMENT SUMMARY & CONFIGURATION', this.marginLeft + 6, this.y + 7.5);
+
+    const midX = this.marginLeft + this.contentWidth / 2;
+    const r1 = this.y + 16;
+    const r2 = this.y + 26;
+
+    // Row 1, Col 1: Initial Vector
+    this.doc.setFont('helvetica', 'normal');
     this.doc.setFontSize(9);
-    this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('EXPERIMENT SUMMARY', this.marginLeft + 5, this.y + 6);
-
-    const colW = this.contentWidth / 4;
-    const startY = this.y + 12;
-
-    // Col 1: Input Vector
-    this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8);
     this.doc.setTextColor(100, 116, 139);
-    this.doc.text('Initial Vector v₀:', this.marginLeft + 5, startY);
+    this.doc.text('Initial Vector v₀:', this.marginLeft + 6, r1);
     this.doc.setFont('courier', 'bold');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(10);
     this.doc.setTextColor(...this.colors.brandBlue);
-    this.doc.text(`(${this.res.initialVector.map(n => n.toFixed(1)).join(', ')})`, this.marginLeft + 5, startY + 5);
+    this.doc.text(this.formatVec(this.res.initialVector, 2), this.marginLeft + 38, r1);
 
-    // Col 2: Pipeline Steps
+    // Row 1, Col 2: Pipeline Length
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(100, 116, 139);
-    this.doc.text('Transformations:', this.marginLeft + colW + 2, startY);
+    this.doc.text('Transformations:', midX + 6, r1);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text(`${this.res.steps.length} Stages (${this.res.steps.map(s => s.name).join(' → ')})`, this.marginLeft + colW + 2, startY + 5);
+    const transNames = this.res.steps.map(s => s.name).join(' → ');
+    this.doc.text(`${this.res.steps.length} Stages (${transNames})`, midX + 38, r1);
 
-    // Col 3: Composition Status
+    // Row 2, Col 1: Composition Verification
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(100, 116, 139);
-    this.doc.text('Composition Verification:', this.marginLeft + colW * 2 + 2, startY);
+    this.doc.text('Composition:', this.marginLeft + 6, r2);
     if (this.res.compositionVerified) {
-      this.drawBadge('VERIFIED EQUIVALENT ✓', this.marginLeft + colW * 2 + 2, startY + 5.5, 'success');
+      this.drawBadge('VERIFIED EQUIVALENT ✓', this.marginLeft + 38, r2, 'success');
     } else {
-      this.drawBadge('FAILED DISAGREEMENT', this.marginLeft + colW * 2 + 2, startY + 5.5, 'error');
+      this.drawBadge('VERIFICATION FAILED', this.marginLeft + 38, r2, 'error');
     }
 
-    // Col 4: Invertibility
+    // Row 2, Col 2: Matrix Inversion
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(100, 116, 139);
-    this.doc.text('Matrix Invertibility:', this.marginLeft + colW * 3 + 2, startY);
+    this.doc.text('Invertibility:', midX + 6, r2);
     if (this.res.composedInverse.success) {
       const cond = this.res.composedInverse.conditionNumber;
       const condLabel = cond < 1e4 ? 'Well-Conditioned' : 'Ill-Conditioned';
-      this.drawBadge(`${condLabel} (κ=${cond < 1e4 ? cond.toFixed(1) : cond.toExponential(1)})`, this.marginLeft + colW * 3 + 2, startY + 5.5, 'success');
+      this.drawBadge(`${condLabel} (κ=${cond < 1e4 ? cond.toFixed(1) : cond.toExponential(1)})`, midX + 38, r2, 'success');
     } else {
-      this.drawBadge('SINGULAR (det=0)', this.marginLeft + colW * 3 + 2, startY + 5.5, 'error');
+      this.drawBadge('SINGULAR (det=0)', midX + 38, r2, 'error');
     }
 
-    this.y += cardH + 7;
+    this.y += cardH + 10;
   }
 
   renderSection1Overview() {
-    this.renderSectionHeading('1. Welcome and Overview of the Experiment');
+    this.renderSectionHeading(
+      '1. Welcome and Overview of the Experiment',
+      'Understanding 3D linear mappings, sequential operator chaining, and scale-aware verification.'
+    );
 
     const introText = 
-      "Welcome to your laboratory report! In this experiment, we explore how 3D vectors transform under sequential linear mappings and examine whether a single composite matrix accurately reproduces the entire multi-stage chain.\n\n" +
-      "The mathematical model operates strictly on 3×3 matrices and 3D column vectors. Transformations act by matrix-vector multiplication: v' = T · v. When multiple transformations are performed in sequence (first T₁, then T₂, then T₃), they compose from right to left: C = Tₙ ··· T₂ · T₁. Furthermore, if C is invertible, we can compute C⁻¹ using partial-pivoted Gauss-Jordan elimination and reconstruct the original input vector perfectly from the transformed result: v₀ = C⁻¹(C · v₀).";
+      "Welcome to your laboratory report! In this experiment, we examine how 3D vectors transform under sequential linear mappings and verify whether a single composite matrix accurately reproduces the entire multi-stage chain.\n\n" +
+      "The mathematical model operates strictly on 3×3 matrices and 3D column vectors. Transformations act by matrix-vector multiplication: v' = T · v. When multiple transformations are performed in sequence (T₁, then T₂, up through Tₙ), they compose from right to left: C = Tₙ ··· T₂ · T₁. Furthermore, if C is non-singular, we can invert the composite operator using partial-pivoted Gauss-Jordan elimination and reconstruct the original input vector: v₀ = C⁻¹(C · v₀).";
 
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(9.5);
+    this.doc.setFontSize(10);
     this.doc.setTextColor(...this.colors.bodyText);
     const splitIntro = this.doc.splitTextToSize(introText, this.contentWidth);
     this.doc.text(splitIntro, this.marginLeft, this.y);
-    this.y += splitIntro.length * 4.4 + 4;
+    this.y += splitIntro.length * 4.8 + 6;
 
     this.renderTutorNote(
-      "Think of matrix transformations as dynamic mappings of 3D space. While vectors point from the origin to a specific coordinate, a 3×3 matrix stretches, rotates, shears, or reflects the entire space around that origin. Notice that the origin (0, 0, 0) always remains pinned at (0, 0, 0) because T · 0 = 0.",
-      "GEOMETRY"
+      "Linear transformations map the origin (0, 0, 0) strictly to itself because T · 0 = 0. Notice how the coordinate axes, grid, and reference geometry reshape around the fixed origin. By watching vectors transform continuously in 3D, we can intuitively connect algebraic equations to spatial geometry.",
+      "GEOMETRIC INTUITION"
     );
   }
 
@@ -342,46 +408,50 @@ class ReportBuilder {
     const v0 = this.res.initialVector;
     const v0Norm = Math.sqrt(v0[0] * v0[0] + v0[1] * v0[1] + v0[2] * v0[2]);
 
-    const cardH = 22;
+    const cardH = 26;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(9.5);
+    this.doc.setFontSize(10.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('Input Vector Representation:', this.marginLeft + 6, this.y + 6);
+    this.doc.text('Input Vector Coordinates & Norm:', this.marginLeft + 6, this.y + 7);
 
     this.doc.setFont('courier', 'bold');
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(11);
     this.doc.setTextColor(...this.colors.brandBlue);
-    this.doc.text(`v₀ = [ x: ${this.formatNum(v0[0])},  y: ${this.formatNum(v0[1])},  z: ${this.formatNum(v0[2])} ]ᵀ`, this.marginLeft + 6, this.y + 13);
+    this.doc.text(`v₀ = [ x: ${this.formatNum(v0[0])},  y: ${this.formatNum(v0[1])},  z: ${this.formatNum(v0[2])} ]ᵀ`, this.marginLeft + 6, this.y + 15);
 
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(9);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text(`Euclidean Length ||v₀||₂ = √(x² + y² + z²) = ${v0Norm.toFixed(4)} units`, this.marginLeft + 6, this.y + 18.5);
+    this.doc.text(`Euclidean Length ||v₀||₂ = √(x² + y² + z²) = ${v0Norm.toFixed(4)} units`, this.marginLeft + 6, this.y + 21.5);
 
-    this.y += cardH + 5;
+    this.y += cardH + 7;
 
     this.renderTutorNote(
-      "Let's begin with your input vector. Before applying this transformation, consider how its direction or magnitude might change. Will the next operation preserve this vector's length (like a pure rigid rotation) or stretch it (scaling)? Look closely at the upcoming matrix elements.",
+      "Let's begin with your input vector. Before applying the first transformation, consider how its direction or magnitude might change. Will the next operation preserve length (like a pure rigid rotation or reflection) or stretch it (scaling)? Look closely at the upcoming matrix elements.",
       "PREDICTION QUESTION"
     );
 
-    // Initial 3D Scene Screenshot
+    // Initial 3D Scene Screenshot (Large, prominent)
     if (this.screenshots.initial) {
       this.renderScreenshot(
         this.screenshots.initial,
-        'Figure 1: Authentic 3D Three.js scene showing initial vector v₀ (cyan) pointing from origin (0,0,0).',
+        'Figure 1: Authentic Three.js 3D viewport showing initial vector v₀ (cyan) pointing from the origin (0,0,0).',
         'Step 0: Initial Vector v₀'
       );
     }
   }
 
   renderSection3Transformations() {
-    this.renderSectionHeading('3. Individual Transformations (Step-by-Step Arithmetic)');
+    this.renderSectionHeading(
+      '3. Individual Transformations (Step-by-Step Arithmetic)',
+      'Detailed breakdown of each stage, row-by-column calculations, and geometric interpretations.'
+    );
 
     this.res.steps.forEach((st, idx) => {
-      this.checkPageBreak(85);
+      // Check space for the stage header and matrix card
+      this.checkPageBreak(90);
 
       const prevV = idx === 0 ? this.res.initialVector : this.res.steps[idx - 1].outputVector;
       const mat = st.matrix;
@@ -389,106 +459,105 @@ class ReportBuilder {
       const prevNorm = Math.sqrt(prevV[0] ** 2 + prevV[1] ** 2 + prevV[2] ** 2);
       const outNorm = Math.sqrt(outV[0] ** 2 + outV[1] ** 2 + outV[2] ** 2);
 
-      // Card Header
+      // Stage Title
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(11);
+      this.doc.setFontSize(13);
       this.doc.setTextColor(...this.colors.primaryDark);
       this.doc.text(`Stage ${st.index}: Apply Transformation ${st.name}`, this.marginLeft, this.y);
-      this.y += 5;
+      this.y += 6;
 
       this.doc.setFont('helvetica', 'italic');
-      this.doc.setFontSize(9);
+      this.doc.setFontSize(10);
       this.doc.setTextColor(...this.colors.bodyText);
       this.doc.text(`General Formula: v_${st.index} = ${st.name} · v_${idx === 0 ? '0' : idx}`, this.marginLeft, this.y);
-      this.y += 5;
+      this.y += 6;
 
       // 1. Matrix and Determinant Card
-      const cardH = 36;
+      const cardH = 40;
       this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
       // Render Matrix Grid
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(8.5);
+      this.doc.setFontSize(9.5);
       this.doc.setTextColor(...this.colors.primaryDark);
-      this.doc.text(`Matrix ${st.name} (3×3):`, this.marginLeft + 6, this.y + 6);
+      this.doc.text(`Matrix ${st.name} (3×3):`, this.marginLeft + 6, this.y + 7);
 
       this.doc.setFont('courier', 'bold');
-      this.doc.setFontSize(8.5);
+      this.doc.setFontSize(9.5);
       this.doc.setTextColor(...this.colors.primaryDark);
 
-      const rowY = this.y + 12;
+      const rowY = this.y + 14;
       this.doc.text(`| ${this.formatNum(mat[0])}  ${this.formatNum(mat[1])}  ${this.formatNum(mat[2])} |`, this.marginLeft + 6, rowY);
-      this.doc.text(`| ${this.formatNum(mat[3])}  ${this.formatNum(mat[4])}  ${this.formatNum(mat[5])} |`, this.marginLeft + 6, rowY + 5);
-      this.doc.text(`| ${this.formatNum(mat[6])}  ${this.formatNum(mat[7])}  ${this.formatNum(mat[8])} |`, this.marginLeft + 6, rowY + 10);
+      this.doc.text(`| ${this.formatNum(mat[3])}  ${this.formatNum(mat[4])}  ${this.formatNum(mat[5])} |`, this.marginLeft + 6, rowY + 6);
+      this.doc.text(`| ${this.formatNum(mat[6])}  ${this.formatNum(mat[7])}  ${this.formatNum(mat[8])} |`, this.marginLeft + 6, rowY + 12);
 
       // Determinant and Geometric Diagnostics
-      const diagX = this.marginLeft + 90;
+      const diagX = this.marginLeft + 88;
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(8.5);
+      this.doc.setFontSize(9.5);
       this.doc.setTextColor(...this.colors.primaryDark);
-      this.doc.text('Geometric Properties:', diagX, this.y + 6);
+      this.doc.text('Geometric Properties:', diagX, this.y + 7);
 
       this.doc.setFont('helvetica', 'normal');
-      this.doc.setFontSize(8);
+      this.doc.setFontSize(8.5);
       this.doc.setTextColor(...this.colors.bodyText);
       const detVal = st.inverse.determinant;
-      this.doc.text(`• Determinant det(${st.name}) = ${this.formatNum(detVal)}`, diagX, this.y + 12);
+      this.doc.text(`• Determinant det(${st.name}) = ${this.formatNum(detVal)}`, diagX, this.y + 14);
 
       let detMeaning = 'Preserves volume and orientation';
-      if (Math.abs(detVal) < 1e-6) detMeaning = 'Singular: collapses space (volume = 0)';
-      else if (Math.abs(Math.abs(detVal) - 1.0) < 1e-4) detMeaning = detVal < 0 ? 'Isometry with reflection (orientation reversed)' : 'Rigid isometry (pure rotation/reflection)';
+      if (Math.abs(detVal) < 1e-6) detMeaning = 'Singular: collapses space (dimension lost)';
+      else if (Math.abs(Math.abs(detVal) - 1.0) < 1e-4) detMeaning = detVal < 0 ? 'Isometry with reflection (orientation reversed)' : 'Rigid isometry (preserves distance & volume)';
       else detMeaning = detVal < 0 ? `Scales volume by |det|=${Math.abs(detVal).toFixed(2)} and reverses orientation` : `Scales volume by factor of ${detVal.toFixed(2)}`;
       
-      this.doc.text(`  → ${detMeaning}`, diagX, this.y + 16.5);
-      this.doc.text(`• Input Length: ${prevNorm.toFixed(3)} → Output Length: ${outNorm.toFixed(3)}`, diagX, this.y + 22);
-      this.doc.text(`• Length Ratio: ${(outNorm / Math.max(1e-9, prevNorm)).toFixed(3)}×`, diagX, this.y + 26.5);
+      this.doc.text(`  → ${detMeaning}`, diagX, this.y + 19);
+      this.doc.text(`• Vector Length: ${prevNorm.toFixed(3)} → ${outNorm.toFixed(3)} units`, diagX, this.y + 25);
+      this.doc.text(`• Length Ratio: ${(outNorm / Math.max(1e-9, prevNorm)).toFixed(3)}×`, diagX, this.y + 30);
 
-      this.y += cardH + 5;
+      this.y += cardH + 6;
 
       // 2. Step-by-Step Row-by-Column Calculations
+      this.checkPageBreak(40);
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(9);
+      this.doc.setFontSize(10);
       this.doc.setTextColor(...this.colors.primaryDark);
-      this.doc.text('Row-by-Column Arithmetic (Step-by-Step):', this.marginLeft, this.y);
-      this.y += 4.5;
+      this.doc.text('Row-by-Column Arithmetic (Step-by-Step Substitution):', this.marginLeft, this.y);
+      this.y += 5;
 
-      const calcBoxH = 26;
+      const calcBoxH = 30;
       this.drawCard(this.marginLeft, this.y, this.contentWidth, calcBoxH, [255, 255, 255], [203, 213, 225]);
 
       this.doc.setFont('courier', 'normal');
-      this.doc.setFontSize(8);
+      this.doc.setFontSize(8.5);
       this.doc.setTextColor(...this.colors.bodyText);
 
       // Row 1
       const xCalcStr = `x' = (${this.formatNum(mat[0])} · ${this.formatNum(prevV[0])}) + (${this.formatNum(mat[1])} · ${this.formatNum(prevV[1])}) + (${this.formatNum(mat[2])} · ${this.formatNum(prevV[2])})`;
       const xSumStr = `= ${this.formatNum(mat[0]*prevV[0])} + ${this.formatNum(mat[1]*prevV[1])} + ${this.formatNum(mat[2]*prevV[2])} = ${this.formatNum(outV[0])}`;
-      this.doc.text(`Row 1 (x-coordinate):  ${xCalcStr}`, this.marginLeft + 4, this.y + 6);
-      this.doc.text(`                       ${xSumStr}`, this.marginLeft + 4, this.y + 10);
+      this.doc.text(`Row 1 (x-coordinate):  ${xCalcStr}  ${xSumStr}`, this.marginLeft + 5, this.y + 7);
 
       // Row 2
       const yCalcStr = `y' = (${this.formatNum(mat[3])} · ${this.formatNum(prevV[0])}) + (${this.formatNum(mat[4])} · ${this.formatNum(prevV[1])}) + (${this.formatNum(mat[5])} · ${this.formatNum(prevV[2])})`;
       const ySumStr = `= ${this.formatNum(mat[3]*prevV[0])} + ${this.formatNum(mat[4]*prevV[1])} + ${this.formatNum(mat[5]*prevV[2])} = ${this.formatNum(outV[1])}`;
-      this.doc.text(`Row 2 (y-coordinate):  ${yCalcStr}`, this.marginLeft + 4, this.y + 15);
-      this.doc.text(`                       ${ySumStr}`, this.marginLeft + 4, this.y + 19);
+      this.doc.text(`Row 2 (y-coordinate):  ${yCalcStr}  ${ySumStr}`, this.marginLeft + 5, this.y + 15);
 
       // Row 3
       const zCalcStr = `z' = (${this.formatNum(mat[6])} · ${this.formatNum(prevV[0])}) + (${this.formatNum(mat[7])} · ${this.formatNum(prevV[1])}) + (${this.formatNum(mat[8])} · ${this.formatNum(prevV[2])})`;
       const zSumStr = `= ${this.formatNum(mat[6]*prevV[0])} + ${this.formatNum(mat[7]*prevV[1])} + ${this.formatNum(mat[8]*prevV[2])} = ${this.formatNum(outV[2])}`;
-      this.doc.text(`Row 3 (z-coordinate):  ${zCalcStr}`, this.marginLeft + 4, this.y + 24);
+      this.doc.text(`Row 3 (z-coordinate):  ${zCalcStr}  ${zSumStr}`, this.marginLeft + 5, this.y + 23);
 
-      this.y += calcBoxH + 4;
+      this.y += calcBoxH + 6;
 
       this.renderTutorNote(
-        `Now let's examine the new coordinates. Notice how each output coordinate is calculated by taking the dot product of one matrix row with incoming vector v_${idx === 0 ? '0' : idx}. The resulting vector is v_${st.index} = [${outV.map(n => n.toFixed(3)).join(', ')}]ᵀ.`,
-        `STAGE ${st.index} SUMMARY`
+        `Notice that each coordinate is calculated by taking the dot product of one matrix row with the incoming vector v_${idx === 0 ? '0' : idx}. The resulting vector is v_${st.index} = [${outV.map(n => n.toFixed(3)).join(', ')}]ᵀ.`,
+        `STAGE ${st.index} RESULT`
       );
 
-      // Screenshot for this stage
+      // Dedicated Large Screenshot for this stage
       const stageScreenshotKey = `stage_${st.index}`;
       if (this.screenshots[stageScreenshotKey]) {
         this.renderScreenshot(
           this.screenshots[stageScreenshotKey],
-          `Figure ${idx + 2}: Authentic 3D scene after applying transformation ${st.name}, showing new vector endpoint v_${st.index}.`,
+          `Figure ${idx + 2}: Authentic 3D visualization after applying transformation ${st.name}, displaying terminal vector v_${st.index}.`,
           `Stage ${st.index}: Result v_${st.index}`
         );
       }
@@ -499,113 +568,112 @@ class ReportBuilder {
     this.renderSectionHeading('4. Transformation Composition & Sequential Verification');
 
     const numSteps = this.res.steps.length;
-    const formulaStr = numSteps === 3 ? 'C = T₃ · T₂ · T₁' : 'C = T₂ · T₁';
+    const formulaStr = `C = ${this.res.steps.map(s => s.name).reverse().join(' · ')}`;
 
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(9.5);
+    this.doc.setFontSize(10);
     this.doc.setTextColor(...this.colors.bodyText);
     const expl = 
-      `In linear algebra, when transformations are chained in time, the combined effect is represented by a single composite matrix: ${formulaStr}.\n` +
-      "Crucially, matrix multiplication is applied from right to left because operators act upon the column vector from the left: v' = T₂(T₁ · v) = (T₂ · T₁) · v. Since matrix multiplication is generally non-commutative (AB ≠ BA), applying operations in reverse order yields completely different geometry.";
+      `In linear algebra, when transformations are chained sequentially, their combined effect is represented by a single composite matrix: ${formulaStr}.\n\n` +
+      "Crucially, matrix multiplication is applied from right to left because operators act upon the column vector from the left: v' = Tₙ(···(T₁ · v)) = (Tₙ ··· T₁) · v. Since matrix multiplication is generally non-commutative (AB ≠ BA), preserving this order is vital to achieving the correct spatial orientation.";
 
     const splitExpl = this.doc.splitTextToSize(expl, this.contentWidth);
     this.doc.text(splitExpl, this.marginLeft, this.y);
-    this.y += splitExpl.length * 4.4 + 4;
+    this.y += splitExpl.length * 4.8 + 6;
 
-    // Composite Matrix Display
-    this.checkPageBreak(60);
-    const cardH = 36;
+    // Composite Matrix Display Card
+    this.checkPageBreak(50);
+    const cardH = 38;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(9.5);
+    this.doc.setFontSize(10.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text(`Composite Transformation Matrix C (${formulaStr}):`, this.marginLeft + 6, this.y + 6);
+    this.doc.text(`Composite Transformation Matrix C (${formulaStr}):`, this.marginLeft + 6, this.y + 7.5);
 
     const cMat = this.res.composedMatrix;
     this.doc.setFont('courier', 'bold');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.brandBlue);
 
-    const rY = this.y + 13;
+    const rY = this.y + 15;
     this.doc.text(`| ${this.formatNum(cMat[0])}  ${this.formatNum(cMat[1])}  ${this.formatNum(cMat[2])} |`, this.marginLeft + 6, rY);
-    this.doc.text(`| ${this.formatNum(cMat[3])}  ${this.formatNum(cMat[4])}  ${this.formatNum(cMat[5])} |`, this.marginLeft + 6, rY + 5.5);
-    this.doc.text(`| ${this.formatNum(cMat[6])}  ${this.formatNum(cMat[7])}  ${this.formatNum(cMat[8])} |`, this.marginLeft + 6, rY + 11);
+    this.doc.text(`| ${this.formatNum(cMat[3])}  ${this.formatNum(cMat[4])}  ${this.formatNum(cMat[5])} |`, this.marginLeft + 6, rY + 6);
+    this.doc.text(`| ${this.formatNum(cMat[6])}  ${this.formatNum(cMat[7])}  ${this.formatNum(cMat[8])} |`, this.marginLeft + 6, rY + 12);
 
     // Diagnostics
-    const rightX = this.marginLeft + 95;
+    const rightX = this.marginLeft + 90;
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text(`• Determinant det(C) = ${this.formatNum(this.res.composedInverse.determinant)}`, rightX, this.y + 13);
-    this.doc.text(`• Matrix Infinity-Norm ||C||_∞ = ${this.formatNum(this.res.composedInverse.normA)}`, rightX, this.y + 18.5);
-    this.doc.text(`• Verification Tolerance: ε = 10⁻⁹ (Scale-Aware)`, rightX, this.y + 24);
+    this.doc.text(`• Determinant det(C) = ${this.formatNum(this.res.composedInverse.determinant)}`, rightX, this.y + 15);
+    this.doc.text(`• Matrix Infinity-Norm ||C||_∞ = ${this.formatNum(this.res.composedInverse.normA)}`, rightX, this.y + 21);
+    this.doc.text(`• Scale-Aware Tolerance: ε = 10⁻⁹`, rightX, this.y + 27);
 
-    this.y += cardH + 5;
+    this.y += cardH + 7;
 
-    // Comparative Verification Table
-    this.checkPageBreak(45);
+    // Spacious, Uncramped Sequential vs Composite Verification Cards
+    this.checkPageBreak(55);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(11);
     this.doc.setTextColor(...this.colors.primaryDark);
     this.doc.text('Sequential vs. Composite Direct Comparison:', this.marginLeft, this.y);
-    this.y += 5;
+    this.y += 6;
 
-    const tableH = 34;
-    this.drawCard(this.marginLeft, this.y, this.contentWidth, tableH, [255, 255, 255], [203, 213, 225]);
+    const compCardH = 46;
+    this.drawCard(this.marginLeft, this.y, this.contentWidth, compCardH, [255, 255, 255], [203, 213, 225]);
 
-    // Table Header
-    this.doc.setFillColor(...this.colors.secondaryDark);
-    this.doc.rect(this.marginLeft, this.y, this.contentWidth, 7, 'F');
+    // Method 1: Sequential Chain
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8);
-    this.doc.setTextColor(255, 255, 255);
-    this.doc.text('METHOD', this.marginLeft + 4, this.y + 4.8);
-    this.doc.text('MATHEMATICAL EXPRESSION', this.marginLeft + 45, this.y + 4.8);
-    this.doc.text('RESULTING VECTOR [x, y, z]ᵀ', this.marginLeft + 115, this.y + 4.8);
-
-    // Row 1: Sequential
-    const tRow1Y = this.y + 13;
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('1. Sequential Chain', this.marginLeft + 4, tRow1Y);
+    this.doc.text('1. Sequential Chain: ', this.marginLeft + 6, this.y + 8);
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text(numSteps === 3 ? 'v_seq = T₃(T₂(T₁ · v₀))' : 'v_seq = T₂(T₁ · v₀)', this.marginLeft + 45, tRow1Y);
+    const seqFormula = `v_seq = ${this.res.steps.map(s => s.name).reverse().join('(')} · v₀${')'.repeat(numSteps - 1)}`;
+    this.doc.text(seqFormula, this.marginLeft + 44, this.y + 8);
+
     this.doc.setFont('courier', 'bold');
     this.doc.setTextColor(...this.colors.accentPurple);
-    this.doc.text(this.formatVec(this.res.finalSequentialVector), this.marginLeft + 115, tRow1Y);
+    this.doc.text(`→ ${this.formatVec(this.res.finalSequentialVector)}`, this.marginLeft + 44, this.y + 14);
 
-    // Row 2: Composite
-    const tRow2Y = this.y + 21;
+    // Divider line
+    this.doc.setDrawColor(226, 232, 240);
+    this.doc.line(this.marginLeft + 6, this.y + 18, this.marginLeft + this.contentWidth - 6, this.y + 18);
+
+    // Method 2: Direct Composite
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('2. Composite Direct', this.marginLeft + 4, tRow2Y);
+    this.doc.text('2. Composite Direct: ', this.marginLeft + 6, this.y + 26);
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text('v_comp = C · v₀', this.marginLeft + 45, tRow2Y);
+    this.doc.text('v_comp = C · v₀', this.marginLeft + 44, this.y + 26);
+
     this.doc.setFont('courier', 'bold');
     this.doc.setTextColor(...this.colors.accentEmerald);
-    this.doc.text(this.formatVec(this.res.composedVector), this.marginLeft + 115, tRow2Y);
+    this.doc.text(`→ ${this.formatVec(this.res.composedVector)}`, this.marginLeft + 44, this.y + 32);
 
-    // Row 3: Residual & Status
-    const tRow3Y = this.y + 29;
+    // Divider line
+    this.doc.setDrawColor(226, 232, 240);
+    this.doc.line(this.marginLeft + 6, this.y + 36, this.marginLeft + this.contentWidth - 6, this.y + 36);
+
+    // Row 3: Residual & Badge
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('Numerical Difference:', this.marginLeft + 4, tRow3Y);
+    this.doc.text('Residual Error: ', this.marginLeft + 6, this.y + 42);
     this.doc.setFont('courier', 'normal');
-    this.doc.text(`||v_comp - v_seq|| = ${this.res.compositionError.toExponential(4)}`, this.marginLeft + 45, tRow3Y);
+    this.doc.text(`||v_comp - v_seq|| = ${this.res.compositionError.toExponential(4)}`, this.marginLeft + 44, this.y + 42);
+
     if (this.res.compositionVerified) {
-      this.drawBadge('VERIFIED EQUIVALENT ✓', this.marginLeft + 115, tRow3Y, 'success');
+      this.drawBadge('VERIFIED EQUIVALENT ✓', this.marginLeft + 115, this.y + 42, 'success');
     } else {
-      this.drawBadge('VERIFICATION FAILED', this.marginLeft + 115, tRow3Y, 'error');
+      this.drawBadge('VERIFICATION FAILED', this.marginLeft + 115, this.y + 42, 'error');
     }
 
-    this.y += tableH + 5;
+    this.y += compCardH + 7;
 
     this.renderTutorNote(
-      "Let's compare the result of applying the transformations individually with the result from their composite matrix. Notice that both methods produce identical coordinates within machine precision (residual < 10⁻¹⁵). This confirms the fundamental theorem of matrix composition: multiplying intermediate matrices together beforehand is mathematically equivalent to transforming the vector step by step.",
+      "Notice that both methods yield identical vector coordinates within machine floating-point precision (residual < 10⁻¹⁵). Multiplying all intermediate matrices together into composite matrix C first is mathematically identical to applying each matrix step by step.",
       "COMPOSITION THEOREM"
     );
   }
@@ -618,108 +686,108 @@ class ReportBuilder {
     if (!inv.success) {
       // Singular Matrix Case: Explain honestly and educationally
       this.checkPageBreak(50);
-      const cardH = 34;
+      const cardH = 36;
       this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH, [255, 241, 242], [254, 205, 211]);
 
       this.doc.setFont('helvetica', 'bold');
-      this.doc.setFontSize(10.5);
+      this.doc.setFontSize(11);
       this.doc.setTextColor(...this.colors.accentRed);
-      this.doc.text('SINGULAR MATRIX: INVERSE DOES NOT EXIST', this.marginLeft + 6, this.y + 7);
+      this.doc.text('SINGULAR MATRIX: INVERSE DOES NOT EXIST', this.marginLeft + 6, this.y + 8);
 
       this.doc.setFont('helvetica', 'normal');
-      this.doc.setFontSize(9);
+      this.doc.setFontSize(9.5);
       this.doc.setTextColor(...this.colors.primaryDark);
       const singularDesc = 
         `Determinant det(C) = ${this.formatNum(inv.determinant)} | Status: ${inv.status}\n\n` +
-        "Geometrically, at least one transformation in the pipeline flattened space onto a plane, line, or origin (dimension collapsed). Because information was irreversibly destroyed, no matrix inverse exists that can recover the initial vector v₀. In our partial-pivoted Gauss-Jordan solver, a pivot dropped below threshold 10⁻¹², correctly signaling singularity.";
+        "Geometrically, at least one transformation collapsed space onto a 2D plane, line, or single point (dimension destroyed). Because coordinate information was irreversibly lost, no unique inverse matrix exists to recover initial vector v₀. In our partial-pivoted Gauss-Jordan solver, a diagonal pivot fell below threshold 10⁻¹², correctly signaling singularity.";
       const splitSing = this.doc.splitTextToSize(singularDesc, this.contentWidth - 12);
-      this.doc.text(splitSing, this.marginLeft + 6, this.y + 14);
+      this.doc.text(splitSing, this.marginLeft + 6, this.y + 15);
 
-      this.y += cardH + 5;
+      this.y += cardH + 7;
 
       this.renderTutorNote(
-        "Singular transformations represent non-invertible physical processes like casting a shadow (projection onto a wall) or squashing a 3D object completely flat. Once 3D depth is flattened to zero, you cannot reconstruct the original 3D coordinates uniquely.",
-        "SINGULARITY EXPLANATION"
+        "Singular matrices correspond to non-invertible physical projections—like casting a shadow on a wall. Once 3D depth is flattened to zero, the original coordinates cannot be reconstructed.",
+        "SINGULARITY NOTE"
       );
       return;
     }
 
     // Invertible Matrix Case: Full verification
-    this.checkPageBreak(85);
-    const cardH = 40;
+    this.checkPageBreak(75);
+    const cardH = 42;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, cardH);
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(9.5);
+    this.doc.setFontSize(10.5);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('Composed Matrix Inverse C⁻¹ (Pivoted Gauss-Jordan):', this.marginLeft + 6, this.y + 6);
+    this.doc.text('Composed Matrix Inverse C⁻¹ (Pivoted Gauss-Jordan):', this.marginLeft + 6, this.y + 7.5);
 
     const invMat = inv.inverse;
     this.doc.setFont('courier', 'bold');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.brandBlue);
 
-    const rY = this.y + 13;
+    const rY = this.y + 15;
     this.doc.text(`| ${this.formatNum(invMat[0])}  ${this.formatNum(invMat[1])}  ${this.formatNum(invMat[2])} |`, this.marginLeft + 6, rY);
-    this.doc.text(`| ${this.formatNum(invMat[3])}  ${this.formatNum(invMat[4])}  ${this.formatNum(invMat[5])} |`, this.marginLeft + 6, rY + 5.5);
-    this.doc.text(`| ${this.formatNum(invMat[6])}  ${this.formatNum(invMat[7])}  ${this.formatNum(invMat[8])} |`, this.marginLeft + 6, rY + 11);
+    this.doc.text(`| ${this.formatNum(invMat[3])}  ${this.formatNum(invMat[4])}  ${this.formatNum(invMat[5])} |`, this.marginLeft + 6, rY + 6);
+    this.doc.text(`| ${this.formatNum(invMat[6])}  ${this.formatNum(invMat[7])}  ${this.formatNum(invMat[8])} |`, this.marginLeft + 6, rY + 12);
 
     // Diagnostics & Inversion Metrics
-    const rightX = this.marginLeft + 95;
+    const rightX = this.marginLeft + 90;
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(8.5);
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text(`• Condition Number κ_∞(C) = ${inv.conditionNumber.toFixed(2)}`, rightX, this.y + 13);
-    this.doc.text(`• Inverse Residual ||I - C·C⁻¹||_∞ = ${inv.residualE1Norm.toExponential(2)}`, rightX, this.y + 18);
-    this.doc.text(`• Commutative Residual ||I - C⁻¹·C||_∞ = ${inv.residualE2Norm.toExponential(2)}`, rightX, this.y + 23);
-    this.doc.text(`• Product of Inverses Matches: ${this.res.inverseProductMatchesDirect ? 'Identical ✓' : 'Discrepancy'}`, rightX, this.y + 28);
-    this.doc.text(`  (Tₙ ··· T₁)⁻¹ = T₁⁻¹ ··· Tₙ⁻¹ (Reversed Order)`, rightX, this.y + 32.5);
+    this.doc.text(`• Condition Number κ_∞(C) = ${inv.conditionNumber.toFixed(2)}`, rightX, this.y + 15);
+    this.doc.text(`• Inverse Residual ||I - C·C⁻¹||_∞ = ${inv.residualE1Norm.toExponential(2)}`, rightX, this.y + 20.5);
+    this.doc.text(`• Commutative Residual ||I - C⁻¹·C||_∞ = ${inv.residualE2Norm.toExponential(2)}`, rightX, this.y + 26);
+    this.doc.text(`• Product of Inverses Matches: ${this.res.inverseProductMatchesDirect ? 'Identical ✓' : 'Discrepancy'}`, rightX, this.y + 31.5);
+    this.doc.text(`  (Tₙ···T₁)⁻¹ = T₁⁻¹···Tₙ⁻¹ (Reversed Order)`, rightX, this.y + 36.5);
 
-    this.y += cardH + 5;
+    this.y += cardH + 7;
 
-    // Vector Recovery Demonstration
-    this.checkPageBreak(45);
+    // Vector Recovery Demonstration Card
+    this.checkPageBreak(50);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(11);
     this.doc.setTextColor(...this.colors.primaryDark);
     this.doc.text('Vector Recovery: v_rec = C⁻¹ · (C · v₀):', this.marginLeft, this.y);
-    this.y += 5;
+    this.y += 6;
 
-    const recBoxH = 26;
+    const recBoxH = 34;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, recBoxH, [255, 255, 255], [203, 213, 225]);
 
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text('Original Input Vector v₀:', this.marginLeft + 5, this.y + 7);
+    this.doc.text('Original Input Vector v₀:', this.marginLeft + 6, this.y + 9);
     this.doc.setFont('courier', 'bold');
     this.doc.setTextColor(...this.colors.brandBlue);
-    this.doc.text(this.formatVec(this.res.initialVector), this.marginLeft + 55, this.y + 7);
+    this.doc.text(this.formatVec(this.res.initialVector), this.marginLeft + 60, this.y + 9);
 
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text('Recovered Vector v_rec:', this.marginLeft + 5, this.y + 14);
+    this.doc.text('Recovered Vector v_rec:', this.marginLeft + 6, this.y + 18);
     this.doc.setFont('courier', 'bold');
     this.doc.setTextColor(...this.colors.accentEmerald);
-    this.doc.text(this.formatVec(this.res.recoveredVector), this.marginLeft + 55, this.y + 14);
+    this.doc.text(this.formatVec(this.res.recoveredVector), this.marginLeft + 60, this.y + 18);
 
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(...this.colors.bodyText);
-    this.doc.text('Recovery Residual ||v_rec - v₀||₂:', this.marginLeft + 5, this.y + 21);
+    this.doc.text('Recovery Residual ||v_rec - v₀||₂:', this.marginLeft + 6, this.y + 27);
     this.doc.setFont('courier', 'normal');
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text(`${this.res.recoveryError.toExponential(4)}`, this.marginLeft + 55, this.y + 21);
+    this.doc.text(`${this.res.recoveryError.toExponential(4)}`, this.marginLeft + 60, this.y + 27);
 
     if (this.res.vectorRecoverySuccessful) {
-      this.drawBadge('PERFECT RECOVERY ✓', this.marginLeft + 115, this.y + 21, 'success');
+      this.drawBadge('PERFECT RECOVERY ✓', this.marginLeft + 115, this.y + 27, 'success');
     } else {
-      this.drawBadge('RECOVERY FAILED', this.marginLeft + 115, this.y + 21, 'error');
+      this.drawBadge('RECOVERY FAILED', this.marginLeft + 115, this.y + 27, 'error');
     }
 
-    this.y += recBoxH + 5;
+    this.y += recBoxH + 7;
 
     this.renderTutorNote(
-      "Compare the recovered vector with the original input to understand the recovery error. Here, the error is well within floating-point roundoff (residual ~ 10⁻¹⁶), proving that linear transformations can be cleanly unwound when the matrix is non-singular. Also notice that to invert a composite pipeline, each transformation's inverse must be applied in reverse order: (T₂T₁)⁻¹ = T₁⁻¹T₂⁻¹.",
+      "Compare the recovered vector with the original input to understand the recovery error. Because C is well-conditioned, the recovery error is down at machine roundoff (~10⁻¹⁶). Furthermore, inverting the composite operator requires inverting each step in reverse order: (Tₙ···T₁)⁻¹ = T₁⁻¹···Tₙ⁻¹.",
       "INVERSE REVERSAL LAW"
     );
   }
@@ -727,7 +795,7 @@ class ReportBuilder {
   renderSection6Reflections() {
     this.renderSectionHeading('6. Observations, Insights & Student Reflection Questions');
 
-    this.checkPageBreak(65);
+    this.checkPageBreak(70);
 
     const takeaways = [
       "1. Non-Commutativity: In general, matrix multiplication does not commute (A·B ≠ B·A). Reordering physical operations like rotation and shear leads to distinct terminal coordinates.",
@@ -737,35 +805,35 @@ class ReportBuilder {
     ];
 
     this.doc.setFont('helvetica', 'normal');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9.5);
     this.doc.setTextColor(...this.colors.bodyText);
 
     takeaways.forEach(item => {
       const lines = this.doc.splitTextToSize(item, this.contentWidth);
       this.doc.text(lines, this.marginLeft, this.y);
-      this.y += lines.length * 4.2 + 2.5;
+      this.y += lines.length * 4.6 + 3;
     });
 
-    this.y += 3;
+    this.y += 4;
 
     // Reflection Questions Card
-    this.checkPageBreak(40);
-    const boxH = 32;
+    this.checkPageBreak(45);
+    const boxH = 36;
     this.drawCard(this.marginLeft, this.y, this.contentWidth, boxH, [254, 252, 232], [254, 240, 138]);
 
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setFontSize(9);
+    this.doc.setFontSize(10);
     this.doc.setTextColor(...this.colors.accentAmber);
-    this.doc.text('QUESTIONS FOR FURTHER REFLECTION:', this.marginLeft + 5, this.y + 6);
+    this.doc.text('QUESTIONS FOR FURTHER REFLECTION:', this.marginLeft + 6, this.y + 7);
 
     this.doc.setFont('helvetica', 'italic');
-    this.doc.setFontSize(8.5);
+    this.doc.setFontSize(9);
     this.doc.setTextColor(...this.colors.primaryDark);
-    this.doc.text('Q1: What happens to a unit cube if det(T) = 0? Can you find a non-zero vector v such that T·v = 0?', this.marginLeft + 5, this.y + 13);
-    this.doc.text('Q2: If you rotate by +45° around Y then rotate by -45° around Y, what should the composite matrix C be?', this.marginLeft + 5, this.y + 19);
-    this.doc.text('Q3: Why must row-pivoting swap rows to place the largest available magnitude on the diagonal?', this.marginLeft + 5, this.y + 25);
+    this.doc.text('Q1: What happens to a unit cube if det(T) = 0? Can you find a non-zero vector v such that T·v = 0?', this.marginLeft + 6, this.y + 15);
+    this.doc.text('Q2: If you rotate by +45° around Y then rotate by -45° around Y, what should the composite matrix C be?', this.marginLeft + 6, this.y + 22);
+    this.doc.text('Q3: Why must row-pivoting swap rows to place the largest available magnitude on the diagonal?', this.marginLeft + 6, this.y + 29);
 
-    this.y += boxH + 6;
+    this.y += boxH + 8;
   }
 
   renderRunningHeadersFooters() {
@@ -777,22 +845,22 @@ class ReportBuilder {
       // Running Header (pages > 1)
       if (i > 1) {
         this.doc.setFont('helvetica', 'normal');
-        this.doc.setFontSize(7.5);
+        this.doc.setFontSize(8);
         this.doc.setTextColor(148, 163, 184);
-        this.doc.text('Transformation Composition & Inverse Verification System • Educational Laboratory Report', this.marginLeft, 10);
+        this.doc.text('Transformation Composition & Inverse Verification System • Educational Laboratory Report', this.marginLeft, 11);
         this.doc.setDrawColor(226, 232, 240);
-        this.doc.setLineWidth(0.2);
-        this.doc.line(this.marginLeft, 12, this.pageWidth - this.marginRight, 12);
+        this.doc.setLineWidth(0.25);
+        this.doc.line(this.marginLeft, 13, this.pageWidth - this.marginRight, 13);
       }
 
       // Running Footer (all pages)
-      const footerY = this.pageHeight - 10;
+      const footerY = this.pageHeight - 11;
       this.doc.setDrawColor(226, 232, 240);
-      this.doc.setLineWidth(0.2);
+      this.doc.setLineWidth(0.25);
       this.doc.line(this.marginLeft, footerY - 3, this.pageWidth - this.marginRight, footerY - 3);
 
       this.doc.setFont('helvetica', 'normal');
-      this.doc.setFontSize(7.5);
+      this.doc.setFontSize(8);
       this.doc.setTextColor(100, 116, 139);
       this.doc.text('Department of Mathematics & Computational Geometry • C++17 / WebAssembly Engine', this.marginLeft, footerY);
 
