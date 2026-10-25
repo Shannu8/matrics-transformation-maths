@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transformation Composition & Inverse Verification System</title>
+  <meta name="description" content="Production-quality 3D linear transformation composition, numerical matrix inversion, scale-aware verification, and interactive Three.js 3D visualization powered by WebAssembly." />
+  
+  <!-- Modern Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/src/styles/main.css" />
+</head>
+<body class="theme-dark">
+  <div id="app-root">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Transformation Composition & Inverse Verification</h1>
+          <span class="subtitle">3×3 Matrix Engine • Wasm C++17 • Interactive 3D</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="wasm-badge" class="status-badge loading">
+          <span class="status-dot"></span>
+          <span class="status-text">Wasm Initializing...</span>
+        </div>
+        <button id="btn-header-pdf" class="btn btn-outline btn-compact" title="Download Educational Experiment PDF Report">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <polyline points="9 15 12 18 15 15"></polyline>
+          </svg>
+          <span>Download PDF Report</span>
+        </button>
+        <button id="btn-fullscreen" class="btn btn-icon" title="Toggle Fullscreen Workspace (F)" aria-label="Toggle Fullscreen">
+          <svg class="fs-icon-enter" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
+          <svg class="fs-icon-exit hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M10 4v6m0 0H4m6 0L3 3m14 7h6m-6 0V4m0 6l7-7" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <main class="app-main">
+      <!-- Permanent Pull-Out Handle on Left Edge -->
+      <button id="btn-left-drawer-toggle" class="drawer-handle drawer-handle-left" aria-expanded="false" aria-controls="left-drawer" title="Open controls" aria-label="Open transformation controls">
+        <span class="handle-icon handle-icon-open">›</span>
+        <span class="handle-icon handle-icon-close hidden">‹</span>
+      </button>
+
+      <!-- Left Pull-Out Controls & Results Drawer -->
+      <aside id="left-drawer" class="left-drawer" aria-label="Transformation Controls Drawer">
+        <!-- Drawer Header -->
+        <div class="drawer-header">
+          <div class="drawer-header-brand">
+            <div class="logo-mark-sm">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <h2>Transformation Studio</h2>
+          </div>
+          <button id="btn-drawer-close" class="btn btn-icon btn-compact" title="Close controls (<)" aria-label="Close controls drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Drawer Mode Switcher Tabs -->
+        <div class="drawer-tabs-nav" role="tablist">
+          <button id="tab-btn-inputs" class="drawer-tab-btn active" data-drawer-tab="tab-drawer-inputs" role="tab" aria-selected="true">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M3 9h18M9 21V9"></path>
+            </svg>
+            <span>Inputs & Matrices</span>
+          </button>
+          <button id="tab-btn-results" class="drawer-tab-btn" data-drawer-tab="tab-drawer-results" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Results & Analysis</span>
+          </button>
+        </div>
+
+        <!-- Drawer Body -->
+        <div class="drawer-body">
+          <!-- Tab 1: Inputs & Matrices -->
+          <div id="tab-drawer-inputs" class="drawer-tab-pane active" role="tabpanel">
+            <div class="panel-scroll-container">
+              <!-- Vector Input Section -->
+              <div class="control-card">
+                <div class="card-header">
+                  <div class="card-title">
+                    <span class="card-icon cyan">v</span>
+                    <h2>Initial Vector v = [x, y, z]ᵀ</h2>
+                  </div>
+                  <div class="header-presets">
+                    <button class="chip-btn" data-vec="1,1,1">[1, 1, 1]</button>
+                    <button class="chip-btn" data-vec="1,2,3">[1, 2, 3]</button>
+                    <button class="chip-btn" data-vec="1,0,0">[1, 0, 0]</button>
+                  </div>
+                </div>
+                <div class="vector-input-grid">
+                  <div class="coord-field">
+                    <label for="vec-x">x</label>
+                    <input type="number" id="vec-x" value="1.0" step="0.5" />
+                  </div>
+                  <div class="coord-field">
+                    <label for="vec-y">y</label>
+                    <input type="number" id="vec-y" value="1.0" step="0.5" />
+                  </div>
+                  <div class="coord-field">
+                    <label for="vec-z">z</label>
+                    <input type="number" id="vec-z" value="1.0" step="0.5" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Transformations Section Header -->
+              <div class="section-title-row">
+                <h3>Transformations (Order: T₁ → T₂ → T₃)</h3>
+                <div class="toggle-control">
+                  <input type="checkbox" id="toggle-t3" />
+                  <label for="toggle-t3">Enable T₃ (3rd step)</label>
+                </div>
+              </div>
+
+              <!-- T1 Card -->
+              <div class="control-card matrix-card" id="card-t1">
+                <div class="card-header">
+                  <div class="card-title">
+                    <span class="card-badge badge-t1">T₁</span>
+                    <h2>First Transformation</h2>
+                  </div>
+                  <div class="preset-dropdown-wrapper">
+                    <select id="preset-select-t1" class="preset-select">
+                      <option value="">Apply Preset...</option>
+                      <option value="scale">Scaling (sx, sy, sz)</option>
+                      <option value="rotateX">Rotation about X</option>
+                      <option value="rotateY">Rotation about Y</option>
+                      <option value="rotateZ">Rotation about Z</option>
+                      <option value="reflectXY">Reflection XY (z → -z)</option>
+                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
+                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
+                      <option value="shear">Shear</option>
+                      <option value="identity">Identity</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="preset-params-t1" class="preset-params-box hidden"></div>
+                <div class="matrix-grid-container" id="grid-t1"></div>
+                <div class="matrix-diagnostics" id="diag-t1">
+                  <span class="det-label">det(T₁) = <strong class="det-val">1.0</strong></span>
+                  <span class="status-pill status-ok">Invertible</span>
+                </div>
+              </div>
+
+              <!-- T2 Card -->
+              <div class="control-card matrix-card" id="card-t2">
+                <div class="card-header">
+                  <div class="card-title">
+                    <span class="card-badge badge-t2">T₂</span>
+                    <h2>Second Transformation</h2>
+                  </div>
+                  <div class="preset-dropdown-wrapper">
+                    <select id="preset-select-t2" class="preset-select">
+                      <option value="">Apply Preset...</option>
+                      <option value="scale">Scaling (sx, sy, sz)</option>
+                      <option value="rotateX">Rotation about X</option>
+                      <option value="rotateY">Rotation about Y</option>
+                      <option value="rotateZ">Rotation about Z</option>
+                      <option value="reflectXY">Reflection XY (z → -z)</option>
+                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
+                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
+                      <option value="shear">Shear</option>
+                      <option value="identity">Identity</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="preset-params-t2" class="preset-params-box hidden"></div>
+                <div class="matrix-grid-container" id="grid-t2"></div>
+                <div class="matrix-diagnostics" id="diag-t2">
+                  <span class="det-label">det(T₂) = <strong class="det-val">1.0</strong></span>
+                  <span class="status-pill status-ok">Invertible</span>
+                </div>
+              </div>
+
+              <!-- T3 Card (Optional) -->
+              <div class="control-card matrix-card hidden" id="card-t3">
+                <div class="card-header">
+                  <div class="card-title">
+                    <span class="card-badge badge-t3">T₃</span>
+                    <h2>Third Transformation</h2>
+                  </div>
+                  <div class="preset-dropdown-wrapper">
+                    <select id="preset-select-t3" class="preset-select">
+                      <option value="">Apply Preset...</option>
+                      <option value="scale">Scaling (sx, sy, sz)</option>
+                      <option value="rotateX">Rotation about X</option>
+                      <option value="rotateY">Rotation about Y</option>
+                      <option value="rotateZ">Rotation about Z</option>
+                      <option value="reflectXY">Reflection XY (z → -z)</option>
+                      <option value="reflectXZ">Reflection XZ (y → -y)</option>
+                      <option value="reflectYZ">Reflection YZ (x → -x)</option>
+                      <option value="shear">Shear</option>
+                      <option value="identity">Identity</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="preset-params-t3" class="preset-params-box hidden"></div>
+                <div class="matrix-grid-container" id="grid-t3"></div>
+                <div class="matrix-diagnostics" id="diag-t3">
+                  <span class="det-label">det(T₃) = <strong class="det-val">1.0</strong></span>
+                  <span class="status-pill status-ok">Invertible</span>
+                </div>
+              </div>
+
+              <!-- Reference Examples Quick Load -->
+              <div class="control-card quick-examples-card">
+                <h4>Handbook Reference Examples</h4>
+                <div class="example-buttons-grid">
+                  <button class="btn btn-outline" id="load-ex-111">Verify v=(1,1,1) Identity</button>
+                  <button class="btn btn-outline" id="load-ex-roty45">Verify RotY(45°) v=(1,1,1)</button>
+                  <button class="btn btn-outline" id="load-ex-scale2">Verify Scale ×2 v=(1,1,1)</button>
+                  <button class="btn btn-outline" id="load-ex-reflectyz">Verify Reflect YZ v=(1,1,1)</button>
+                  <button class="btn btn-outline" id="load-ex-rotx45">RotX(45°) v=(1,1,1)</button>
+                  <button class="btn btn-outline" id="load-ex-12-2">Ex 12.2: Scale & Reflect</button>
+                  <button class="btn btn-outline" id="load-ex-12-3">Ex 12.3: Non-Commuting</button>
+                  <button class="btn btn-outline" id="load-ex-singular">Singular Test</button>
+                </div>
+              </div>
+
+              <!-- Calculate Button -->
+              <div class="action-btn-row">
+                <button id="btn-calculate" class="btn btn-primary btn-large">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  Compute & Verify Transformations
+                </button>
+              </div>
+
+              <div id="error-banner" class="alert-banner alert-error hidden"></div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Results & Verification -->
+          <div id="tab-drawer-results" class="drawer-tab-pane" role="tabpanel">
+            <div class="panel-scroll-container">
+              <div class="report-download-banner">
+                <button id="btn-download-pdf" class="btn btn-primary btn-large btn-download-report">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download Experiment Report (PDF)</span>
+                </button>
+              </div>
+              <div class="tabs-container">
+                <nav class="tabs-nav" role="tablist">
+                  <button class="tab-btn active" data-tab="tab-composition">Composition & Verification</button>
+                  <button class="tab-btn" data-tab="tab-inverses">Matrix Inverses & Recovery</button>
+                  <button class="tab-btn" data-tab="tab-steps">Intermediate Steps</button>
+                  <button class="tab-btn" data-tab="tab-theory">Handbook Theory</button>
+                </nav>
+
+                <div class="tab-content active" id="tab-composition"></div>
+                <div class="tab-content" id="tab-inverses"></div>
+                <div class="tab-content" id="tab-steps"></div>
+                <div class="tab-content" id="tab-theory"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center: 3D Visualization Workspace -->
+      <section class="main-content-area">
+        <div class="viewport-card">
+          <div id="three-container" class="three-container">
+            <!-- Canvas is injected here by Three.js -->
+
+            <!-- Floating Viewport Controls (Top-Right) -->
+            <div class="floating-viewport-controls">
+              <div class="camera-controls">
+                <button class="cam-btn" data-view="iso" title="Isometric 3D Perspective View">Isometric</button>
+                <button class="cam-btn" data-view="front" title="Front Elevation View (XY Plane)">XY</button>
+                <button class="cam-btn" data-view="top" title="Top Plan View (XZ Plane)">XZ</button>
+                <button class="cam-btn" data-view="side" title="Side Profile View (YZ Plane)">YZ</button>
+                <button class="cam-btn" data-view="reset" title="Reset Camera View">Reset</button>
+              </div>
+              <div class="viewport-divider"></div>
+              <label class="toggle-control unit-cube-toggle" for="toggle-unit-cube" title="Toggle unit cube reference object">
+                <input type="checkbox" id="toggle-unit-cube" checked />
+                <span class="toggle-label-text">Unit cube</span>
+              </label>
+              <label class="toggle-control ref-vectors-toggle" for="toggle-reference-vectors" title="Show muted reference vectors for comparison">
+                <input type="checkbox" id="toggle-reference-vectors" />
+                <span class="toggle-label-text">Ref vectors</span>
+              </label>
+              <div class="viewport-divider"></div>
+              <button id="btn-viewport-pdf" class="btn btn-icon btn-compact" title="Download Educational PDF Report" aria-label="Download PDF Report">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+              <button id="btn-legend-toggle" class="btn btn-icon btn-compact" title="Toggle Vector Legend" aria-label="Toggle Legend">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+              </button>
+              <button id="btn-viewport-fullscreen" class="btn btn-icon btn-compact" title="Toggle Fullscreen Workspace (F)" aria-label="Toggle Fullscreen">
+                <svg class="fs-icon-enter" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+                <svg class="fs-icon-exit hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M10 4v6m0 0H4m6 0L3 3m14 7h6m-6 0V4m0 6l7-7" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Overlay Legend (Top-Left) -->
+            <div class="viewport-overlay-legend" id="viewport-overlay-legend">
+              <div class="legend-header-row">
+                <span class="legend-header-text">Axes: <span style="color:#ef4444;">+X</span> (Red), <span style="color:#22c55e;">+Y</span> (Green), <span style="color:#3b82f6;">+Z</span> (Blue)</span>
+                <button id="btn-close-legend" class="legend-close-btn" title="Hide legend" aria-label="Close legend">×</button>
+              </div>
+              <div class="legend-item"><span class="legend-dot primary-dot"></span> <strong id="legend-primary-text" style="color:#38bdf8;">Primary Vector: v(t)</strong></div>
+              <div id="legend-ref-container" class="hidden">
+                <div class="legend-ref-title">Reference Vectors:</div>
+                <div class="legend-item muted-ref"><span class="legend-dot cyan"></span> Initial: v₀</div>
+                <div class="legend-item muted-ref"><span class="legend-dot amber"></span> Step 1: v₁</div>
+                <div class="legend-item muted-ref"><span class="legend-dot purple"></span> Step 2: v₂</div>
+                <div class="legend-item muted-ref" id="legend-ref-v3" style="display:none;"><span class="legend-dot magenta"></span> Step 3: v₃</div>
+                <div class="legend-item muted-ref"><span class="legend-dot emerald"></span> Composed: Cv</div>
+                <div class="legend-item muted-ref"><span class="legend-dot white-dashed"></span> Recovered: C⁻¹Cv</div>
+              </div>
+            </div>
+
+            <!-- Collapsible Animation Control Strip (Bottom) -->
+            <div class="animation-control-bar is-expanded" id="animation-control-bar">
+              <button id="btn-anim-bar-toggle" class="anim-bar-toggle-handle" aria-expanded="true" aria-controls="animation-control-bar" title="Collapse playback controls" aria-label="Toggle animation controls">
+                <svg class="toggle-icon-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <svg class="toggle-icon-expand hidden" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              </button>
+
+              <!-- Collapsed Mini View -->
+              <div class="anim-collapsed-strip hidden" id="anim-collapsed-strip">
+                <button id="btn-mini-play-pause" class="btn btn-icon btn-playback-mini" title="Play / Pause Animation">
+                  <svg class="mini-icon-play" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  <svg class="mini-icon-pause hidden" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                  </svg>
+                </button>
+                <span class="anim-mini-label" id="anim-mini-label">Initial Vector v₀</span>
+              </div>
+
+              <!-- Expanded Full Controls -->
+              <div class="anim-expanded-content" id="anim-expanded-content">
+                <div class="playback-buttons">
+                  <button id="btn-play-pause" class="btn btn-icon btn-playback" title="Play / Pause Animation">
+                    <svg id="icon-play" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <svg id="icon-pause" class="hidden" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <rect x="6" y="4" width="4" height="16"></rect>
+                      <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                  </button>
+                  <button id="btn-step-prev" class="btn btn-icon" title="Previous Step">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                      <line x1="5" y1="19" x2="5" y2="5"></line>
+                    </svg>
+                  </button>
+                  <button id="btn-step-next" class="btn btn-icon" title="Next Step">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                      <line x1="19" y1="5" x2="19" y2="19"></line>
+                    </svg>
+                  </button>
+                  <button id="btn-reset-anim" class="btn btn-icon" title="Reset Animation to Beginning">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                      <path d="M3 3v5h5"></path>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="step-progress-wrapper">
+                  <div class="step-indicator-text" id="step-indicator">Step 0 of 2: Initial Vector v₀</div>
+                  <input type="range" id="anim-slider" min="0" max="100" value="0" class="progress-slider" />
+                </div>
+
+                <div class="speed-control-wrapper">
+                  <label for="speed-select">Speed:</label>
+                  <select id="speed-select" class="speed-select">
+                    <option value="0.5">0.5×</option>
+                    <option value="1.0" selected>1.0×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="2.0">2.0×</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
