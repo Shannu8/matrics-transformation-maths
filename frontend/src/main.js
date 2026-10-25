@@ -92,29 +92,29 @@ class App {
       }
     });
 
-    // 3. Initialize Engine Client (Wasm loader)
+    // 3. Setup Pull-Out Left Drawer Controls immediately
+    this.setupLeftDrawer();
+
+    // 4. Setup Collapsible Animation Strip
+    this.setupAnimationBar();
+
+    // 5. Setup Collapsible Legend
+    this.setupLegend();
+
+    // 6. Setup Dedicated Fullscreen Workspace View
+    this.setupFullscreen();
+
+    // 7. Prevent 3D Camera Rotation when interacting with drawers/panels
+    this.setupEventIsolation();
+
+    // 8. Initialize Engine Client (Wasm loader)
     const wasmActive = await this.engineClient.init();
     this.updateWasmBadge(wasmActive);
 
-    // 4. Initialize Matrix Inputs Manager
+    // 9. Initialize Matrix Inputs Manager
     this.inputsManager = new MatrixInputsManager(this.engineClient, () => {
       this.recalculate();
     });
-
-    // 5. Setup Pull-Out Left Drawer Controls
-    this.setupLeftDrawer();
-
-    // 6. Setup Collapsible Animation Strip
-    this.setupAnimationBar();
-
-    // 7. Setup Collapsible Legend
-    this.setupLegend();
-
-    // 8. Setup Dedicated Fullscreen Workspace View
-    this.setupFullscreen();
-
-    // 9. Prevent 3D Camera Rotation when interacting with drawers/panels
-    this.setupEventIsolation();
 
     // 10. Calculate Button
     const calcBtn = document.getElementById('btn-calculate');
@@ -163,6 +163,7 @@ class App {
   }
 
   recalculate() {
+    if (!this.inputsManager) return;
     const errorBanner = document.getElementById('error-banner');
     if (errorBanner) errorBanner.classList.add('hidden');
 
@@ -288,7 +289,9 @@ class App {
 
       document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
       if (window.innerWidth > 768) {
-        drawer.style.width = `${clamped}px`;
+        if (drawer.classList.contains('drawer-open')) {
+          drawer.style.width = `${clamped}px`;
+        }
       } else {
         drawer.style.width = '';
       }
@@ -330,6 +333,9 @@ class App {
         drawerHandle.setAttribute('aria-label', 'Open transformation controls');
         if (openIcon) openIcon.classList.remove('hidden');
         if (closeIcon) closeIcon.classList.add('hidden');
+        if (window.innerWidth > 768) {
+          drawer.style.width = '';
+        }
       }
 
       // Smoothly update viewport aspect ratio during/after slide transition
@@ -340,6 +346,7 @@ class App {
     };
 
     drawerHandle.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       const isOpen = drawer.classList.contains('drawer-open');
       setDrawerOpen(!isOpen);
@@ -347,6 +354,7 @@ class App {
 
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         setDrawerOpen(false);
       });

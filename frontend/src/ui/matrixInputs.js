@@ -26,7 +26,9 @@ export class MatrixInputsManager {
     this.transformations = [];
     this.idCounter = 1;
 
+    this.isInitializing = true;
     this.init();
+    this.isInitializing = false;
   }
 
   init() {
@@ -73,7 +75,7 @@ export class MatrixInputsManager {
     const btnRad = document.getElementById('btn-unit-rad');
     const btnDeg = document.getElementById('btn-unit-deg');
 
-    const updateTheta = () => {
+    const updateTheta = (notify = true) => {
       const expr = thetaInput ? thetaInput.value.trim() : this.thetaExpr;
       const res = MathExpressionParser.validate(expr, { pi: Math.PI, 'π': Math.PI, e: Math.E });
 
@@ -96,7 +98,9 @@ export class MatrixInputsManager {
 
         // Re-evaluate transformations that depend on theta
         this.recalculateDependentTransformations();
-        this.notifyChange();
+        if (notify && !this.isInitializing) {
+          this.notifyChange();
+        }
       } else {
         if (thetaInput) thetaInput.classList.add('invalid');
         if (errMsg) {
@@ -107,7 +111,7 @@ export class MatrixInputsManager {
     };
 
     if (thetaInput) {
-      thetaInput.addEventListener('input', updateTheta);
+      thetaInput.addEventListener('input', () => updateTheta(true));
     }
 
     if (btnRad && btnDeg) {
@@ -116,14 +120,14 @@ export class MatrixInputsManager {
         this.thetaUnit = 'rad';
         btnRad.classList.add('active');
         btnDeg.classList.remove('active');
-        updateTheta();
+        updateTheta(true);
       });
       btnDeg.addEventListener('click', () => {
         if (this.thetaUnit === 'deg') return;
         this.thetaUnit = 'deg';
         btnDeg.classList.add('active');
         btnRad.classList.remove('active');
-        updateTheta();
+        updateTheta(true);
       });
     }
 
@@ -133,11 +137,11 @@ export class MatrixInputsManager {
         const val = e.target.getAttribute('data-val');
         if (!val || !thetaInput) return;
         thetaInput.value = val;
-        updateTheta();
+        updateTheta(true);
       });
     });
 
-    updateTheta();
+    updateTheta(false);
   }
 
   setupGlobalControls() {
@@ -970,6 +974,7 @@ export class MatrixInputsManager {
   }
 
   notifyChange() {
+    if (this.isInitializing) return;
     this.updateOrderNames();
     if (this.onChange) {
       this.onChange();

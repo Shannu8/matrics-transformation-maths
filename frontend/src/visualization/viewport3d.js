@@ -90,7 +90,7 @@ export class Viewport3D {
     this.geometryGroup = null;
     this.cubeMesh = null;
     this.cubeWireframe = null;
-    this.showUnitCube = true;
+    this.showUnitCube = false;
     this.projectionGroup = null;
 
     // Dynamic Axis Sizing & Extent State
@@ -188,6 +188,9 @@ export class Viewport3D {
 
     // 11. Persistent Primary Vector 3D Solid Arrow
     this.setupPrimaryArrow();
+
+    // 12. Render default initial vector v = [1, 1, 1] so scene is immediately mathematically populated
+    this.setVector([1, 1, 1]);
 
     // Window and container resize observers
     window.addEventListener('resize', () => this.handleResize());
