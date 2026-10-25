@@ -92,6 +92,24 @@ export class Viewport3D {
     this.showUnitCube = true;
     this.projectionGroup = null;
 
+    // Dynamic Axis Sizing & Extent State
+    this.minAxisExtent = 5.0;
+    this.axisMargin = 1.0;
+    this.currentCameraScale = 1.0;
+    this.axisExtents = {
+      x: 5.8,
+      y: 5.8,
+      z: 5.8,
+      posX: 5.8,
+      negX: 5.8,
+      posY: 5.8,
+      negY: 5.8,
+      posZ: 5.8,
+      negZ: 5.8
+    };
+    this.axisGroup = null;
+    this.gridHelper = null;
+
     // Animation & Sequence State
     this.pipelineResult = null;
     this.animationSegments = [];
@@ -149,13 +167,9 @@ export class Viewport3D {
     dirLight2.position.set(-12, -10, -12);
     this.scene.add(dirLight2);
 
-    // 6. Coordinate Grid on XZ plane (y=0)
-    const gridHelper = new THREE.GridHelper(16, 16, 0x334155, 0x1e293b);
-    gridHelper.position.y = 0;
-    this.scene.add(gridHelper);
-
-    // 7. Coordinate Axes with Unambiguous Labels, Integer Ticks, and Shared Origin
-    this.buildAxes();
+    // 6. Dynamic Coordinate Axes & Adaptive Grid on XZ plane (y=0)
+    this.updateAxes();
+    this.updateGrid(this.axisExtents.x, this.axisExtents.z);
 
     // 8. Unit Cube Reference Object (0..1 in positive octant)
     this.buildCube();
@@ -182,10 +196,148 @@ export class Viewport3D {
     }
   }
 
-  buildAxes() {
-    const axisGroup = new THREE.Group();
-    axisGroup.name = 'coordinateAxes';
-    const axisLength = 5.8;
+  /**
+   * Conceptually: axisExtent = max(5, abs(vectorCoordinate) + margin)
+   * Calculates the required extent for each axis independently based on the vector coordinates.
+   */
+  static calculateAxisExtent(coord, minExtent = 5.0, margin = 1.0) {
+    const absCoord = Math.abs(Number(coord) || 0);
+    if (absCoord <= 0.001) return minExtent + 0.8;
+    return Math.max(minExtent + 0.8, absCoord + margin);
+  }
+
+  calculateRequiredExtents(vectors) {
+    let maxAbsX = 0, maxPosX = 0, maxNegX = 0;
+    let maxAbsY = 0, maxPosY = 0, maxNegY = 0;
+    let maxAbsZ = 0, maxPosZ = 0, maxNegZ = 0;
+
+    if (vectors && vectors.length > 0) {
+      vectors.forEach(v => {
+        if (!v || v.length < 3) return;
+        const x = Number(v[0]) || 0;
+        const y = Number(v[1]) || 0;
+        const z = Number(v[2]) || 0;
+
+        if (x > maxPosX) maxPosX = x;
+        if (-x > maxNegX) maxNegX = -x;
+        const absX = Math.abs(x);
+        if (absX > maxAbsX) maxAbsX = absX;
+
+        if (y > maxPosY) maxPosY = y;
+        if (-y > maxNegY) maxNegY = -y;
+        const absY = Math.abs(y);
+        if (absY > maxAbsY) maxAbsY = absY;
+
+        if (z > maxPosZ) maxPosZ = z;
+        if (-z > maxNegZ) maxNegZ = -z;
+        const absZ = Math.abs(z);
+        if (absZ > maxAbsZ) maxAbsZ = absZ;
+      });
+    }
+
+    const calcAxis = (absVal) => {
+      if (absVal <= 0.001) return this.minAxisExtent + 0.8;
+      return Math.max(this.minAxisExtent + 0.8, absVal + this.axisMargin);
+    };
+
+    const extentX = calcAxis(maxAbsX);
+    const extentY = calcAxis(maxAbsY);
+    const extentZ = calcAxis(maxAbsZ);
+
+    return {
+      x: extentX,
+      y: extentY,
+      z: extentZ,
+      posX: extentX,
+      negX: extentX,
+      posY: extentY,
+      negY: extentY,
+      posZ: extentZ,
+      negZ: extentZ
+    };
+  }
+
+  getAxisExtent(axis = 'x') {
+    const key = String(axis).toLowerCase();
+    if (key === 'x') return this.axisExtents.x;
+    if (key === 'y') return this.axisExtents.y;
+    if (key === 'z') return this.axisExtents.z;
+    if (this.axisExtents[axis] !== undefined) return this.axisExtents[axis];
+    return this.minAxisExtent;
+  }
+
+  getAxisExtents() {
+    return { ...this.axisExtents };
+  }
+
+  setAxisMargin(margin) {
+    this.axisMargin = Math.max(0.2, Number(margin) || 1.0);
+    if (this.pipelineResult) {
+      this.setPipelineData(this.pipelineResult);
+    } else {
+      this.updateAxes();
+    }
+  }
+
+  setMinAxisExtent(minVal) {
+    this.minAxisExtent = Math.max(1.0, Number(minVal) || 5.0);
+    if (this.pipelineResult) {
+      this.setPipelineData(this.pipelineResult);
+    } else {
+      this.updateAxes();
+    }
+  }
+
+  updateGrid(extentX, extentZ) {
+    const maxExtent = Math.max(extentX, extentZ);
+    const gridRadius = Math.max(8, Math.ceil(maxExtent) + 1);
+    const gridSize = gridRadius * 2;
+    let divisions = gridSize;
+    if (gridSize > 60) {
+      divisions = Math.round(gridSize / 2);
+    }
+
+    if (this.gridHelper) {
+      if (this.gridHelper.userData && this.gridHelper.userData.gridSize === gridSize) {
+        return;
+      }
+      this.scene.remove(this.gridHelper);
+      if (this.gridHelper.geometry) this.gridHelper.geometry.dispose();
+      if (this.gridHelper.material) this.gridHelper.material.dispose();
+    }
+
+    this.gridHelper = new THREE.GridHelper(gridSize, divisions, 0x334155, 0x1e293b);
+    this.gridHelper.position.y = 0;
+    this.gridHelper.userData = { gridSize };
+    this.scene.add(this.gridHelper);
+  }
+
+  updateAxes(extents) {
+    if (!extents) {
+      extents = this.calculateRequiredExtents([]);
+    }
+
+    this.axisExtents = { ...extents };
+
+    const extentX = extents.x || (this.minAxisExtent + 0.8);
+    const extentY = extents.y || (this.minAxisExtent + 0.8);
+    const extentZ = extents.z || (this.minAxisExtent + 0.8);
+
+    if (!this.axisGroup) {
+      this.axisGroup = new THREE.Group();
+      this.axisGroup.name = 'coordinateAxes';
+      this.scene.add(this.axisGroup);
+    } else {
+      while (this.axisGroup.children.length > 0) {
+        const child = this.axisGroup.children[0];
+        this.axisGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (child.material.map) child.material.map.dispose();
+          child.material.dispose();
+        }
+      }
+    }
 
     const createAxisLine = (start, end, colorHex, linewidth = 2) => {
       const geom = new THREE.BufferGeometry().setFromPoints([start, end]);
@@ -202,80 +354,125 @@ export class Viewport3D {
       return cone;
     };
 
-    // Shared Origin Marker
+    // Shared Origin Marker (fixed at 0, 0, 0)
     const originGeom = new THREE.SphereGeometry(0.06, 16, 16);
     const originMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
     const originSphere = new THREE.Mesh(originGeom, originMat);
     originSphere.position.set(0, 0, 0);
-    axisGroup.add(originSphere);
+    this.axisGroup.add(originSphere);
 
     // +X Axis (Red)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(axisLength, 0, 0), 0xef4444));
-    axisGroup.add(createAxisCone(new THREE.Vector3(axisLength, 0, 0), new THREE.Vector3(1, 0, 0), 0xef4444));
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(extentX, 0, 0), 0xef4444));
+    this.axisGroup.add(createAxisCone(new THREE.Vector3(extentX, 0, 0), new THREE.Vector3(1, 0, 0), 0xef4444));
     const labelX = createTextSprite('+X (Red)', '#ef4444', 26, 210, 52);
-    labelX.position.set(axisLength + 0.65, 0, 0);
-    axisGroup.add(labelX);
+    labelX.position.set(extentX + 0.65, 0, 0);
+    this.axisGroup.add(labelX);
 
-    // -X Axis (Faint Dashed Line)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-axisLength, 0, 0), 0x334155, 1));
+    // -X Axis (Faint Reference Line with -X label)
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-extentX, 0, 0), 0x334155, 1));
+    const labelNegX = createTextSprite('-X', '#64748b', 22, 100, 48);
+    labelNegX.position.set(-extentX - 0.5, 0, 0);
+    this.axisGroup.add(labelNegX);
 
     // +Y Axis (Green, UP)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, axisLength, 0), 0x22c55e));
-    axisGroup.add(createAxisCone(new THREE.Vector3(0, axisLength, 0), new THREE.Vector3(0, 1, 0), 0x22c55e));
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, extentY, 0), 0x22c55e));
+    this.axisGroup.add(createAxisCone(new THREE.Vector3(0, extentY, 0), new THREE.Vector3(0, 1, 0), 0x22c55e));
     const labelY = createTextSprite('+Y (Green, UP)', '#22c55e', 26, 240, 52);
-    labelY.position.set(0, axisLength + 0.65, 0);
-    axisGroup.add(labelY);
+    labelY.position.set(0, extentY + 0.65, 0);
+    this.axisGroup.add(labelY);
 
-    // -Y Axis (Faint Dashed Line)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -axisLength, 0), 0x334155, 1));
+    // -Y Axis (Faint Reference Line with -Y label)
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -extentY, 0), 0x334155, 1));
+    const labelNegY = createTextSprite('-Y', '#64748b', 22, 100, 48);
+    labelNegY.position.set(0, -extentY - 0.5, 0);
+    this.axisGroup.add(labelNegY);
 
     // +Z Axis (Blue, Depth)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, axisLength), 0x3b82f6));
-    axisGroup.add(createAxisCone(new THREE.Vector3(0, 0, axisLength), new THREE.Vector3(0, 0, 1), 0x3b82f6));
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, extentZ), 0x3b82f6));
+    this.axisGroup.add(createAxisCone(new THREE.Vector3(0, 0, extentZ), new THREE.Vector3(0, 0, 1), 0x3b82f6));
     const labelZ = createTextSprite('+Z (Blue)', '#3b82f6', 26, 210, 52);
-    labelZ.position.set(0, 0, axisLength + 0.65);
-    axisGroup.add(labelZ);
+    labelZ.position.set(0, 0, extentZ + 0.65);
+    this.axisGroup.add(labelZ);
 
-    // -Z Axis (Faint Dashed Line)
-    axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -axisLength), 0x334155, 1));
+    // -Z Axis (Faint Reference Line with -Z label)
+    this.axisGroup.add(createAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -extentZ), 0x334155, 1));
+    const labelNegZ = createTextSprite('-Z', '#64748b', 22, 100, 48);
+    labelNegZ.position.set(0, 0, -extentZ - 0.5);
+    this.axisGroup.add(labelNegZ);
 
-    // Integer Tick Marks (-5 to +5 on each axis, excluding 0)
+    // Integer Tick Marks on each axis, excluding 0
     const tickMat = new THREE.LineBasicMaterial({ color: 0x64748b });
-    const tickValues = [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5];
+    const getTickStep = (maxT) => {
+      if (maxT <= 12) return 1;
+      if (maxT <= 25) return 2;
+      if (maxT <= 60) return 5;
+      return 10;
+    };
 
-    tickValues.forEach(i => {
-      // X ticks
-      const geomX = new THREE.BufferGeometry().setFromPoints([
+    const maxTickX = Math.max(5, Math.floor(extentX - 0.2));
+    const stepX = getTickStep(maxTickX);
+    for (let i = -maxTickX; i <= maxTickX; i += stepX) {
+      if (i === 0) continue;
+      const geom = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(i, -0.08, 0),
         new THREE.Vector3(i, 0.08, 0)
       ]);
-      axisGroup.add(new THREE.Line(geomX, tickMat));
-      const spX = createNumericSprite(String(i), '#ef4444');
-      spX.position.set(i, 0, 0.28);
-      axisGroup.add(spX);
+      this.axisGroup.add(new THREE.Line(geom, tickMat));
+      const sp = createNumericSprite(String(i), '#ef4444');
+      sp.position.set(i, 0, 0.28);
+      this.axisGroup.add(sp);
+    }
 
-      // Y ticks
-      const geomY = new THREE.BufferGeometry().setFromPoints([
+    const maxTickY = Math.max(5, Math.floor(extentY - 0.2));
+    const stepY = getTickStep(maxTickY);
+    for (let i = -maxTickY; i <= maxTickY; i += stepY) {
+      if (i === 0) continue;
+      const geom = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-0.08, i, 0),
         new THREE.Vector3(0.08, i, 0)
       ]);
-      axisGroup.add(new THREE.Line(geomY, tickMat));
-      const spY = createNumericSprite(String(i), '#22c55e');
-      spY.position.set(0.28, i, 0);
-      axisGroup.add(spY);
+      this.axisGroup.add(new THREE.Line(geom, tickMat));
+      const sp = createNumericSprite(String(i), '#22c55e');
+      sp.position.set(0.28, i, 0);
+      this.axisGroup.add(sp);
+    }
 
-      // Z ticks
-      const geomZ = new THREE.BufferGeometry().setFromPoints([
+    const maxTickZ = Math.max(5, Math.floor(extentZ - 0.2));
+    const stepZ = getTickStep(maxTickZ);
+    for (let i = -maxTickZ; i <= maxTickZ; i += stepZ) {
+      if (i === 0) continue;
+      const geom = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-0.08, 0, i),
         new THREE.Vector3(0.08, 0, i)
       ]);
-      axisGroup.add(new THREE.Line(geomZ, tickMat));
-      const spZ = createNumericSprite(String(i), '#3b82f6');
-      spZ.position.set(0.28, 0, i);
-      axisGroup.add(spZ);
-    });
+      this.axisGroup.add(new THREE.Line(geom, tickMat));
+      const sp = createNumericSprite(String(i), '#3b82f6');
+      sp.position.set(0.28, 0, i);
+      this.axisGroup.add(sp);
+    }
+  }
 
-    this.scene.add(axisGroup);
+  buildAxes() {
+    this.updateAxes();
+  }
+
+  setVector(vec3) {
+    if (!vec3 || vec3.length < 3) return;
+    const v = [Number(vec3[0]) || 0, Number(vec3[1]) || 0, Number(vec3[2]) || 0];
+    const extents = this.calculateRequiredExtents([v]);
+    this.updateAxes(extents);
+    this.updateGrid(extents.x, extents.z);
+    
+    const maxCoord = Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2]));
+    this.updateCameraFraming(maxCoord);
+    
+    const coordStr = `(${v[0].toFixed(2)}, ${v[1].toFixed(2)}, ${v[2].toFixed(2)})`;
+    this.updatePrimaryArrow(v, `v₀: ${coordStr}`);
+    this.updateProjectionLines(v);
+  }
+
+  updateVector(vec3) {
+    this.setVector(vec3);
   }
 
   buildCube() {
@@ -780,6 +977,38 @@ export class Viewport3D {
     this.pipelineResult = result;
     this.pause();
 
+    // 1. Gather all vector endpoints across pipeline stages to determine required extents
+    const allVectors = [];
+    if (result.initialVector) allVectors.push(result.initialVector);
+    if (result.steps && result.steps.length > 0) {
+      result.steps.forEach(st => {
+        if (st.outputVector) allVectors.push(st.outputVector);
+        // If step is a rotation, vector radius may sweep across axes
+        const rotInfo = this.isRotationMatrix(st.matrix);
+        if (rotInfo.isRotation && st.outputVector) {
+          const norm = Math.hypot(st.outputVector[0], st.outputVector[1], st.outputVector[2]);
+          allVectors.push([norm, 0, 0], [-norm, 0, 0]);
+          allVectors.push([0, norm, 0], [0, -norm, 0]);
+          allVectors.push([0, 0, norm], [0, 0, -norm]);
+        }
+      });
+    }
+    if (result.composedVector) allVectors.push(result.composedVector);
+    if (result.recoveredVector && result.vectorRecoverySuccessful) {
+      allVectors.push(result.recoveredVector);
+    }
+
+    // 2. Compute and apply dynamic axis extents and adaptive grid
+    const extents = this.calculateRequiredExtents(allVectors);
+    this.updateAxes(extents);
+    this.updateGrid(extents.x, extents.z);
+
+    // 3. Keep camera framing balanced without unnecessary shrinking
+    const maxCoord = Math.max(
+      ...allVectors.map(v => Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])))
+    );
+    this.updateCameraFraming(maxCoord);
+
     const v0 = [...result.initialVector];
     const segments = [];
     let prevVector = [...v0];
@@ -881,6 +1110,27 @@ export class Viewport3D {
 
     // 1. Update the single persistent primary arrow in-place
     this.updatePrimaryArrow(state.vector, tipBadge);
+
+    // Dynamic extent check during animation:
+    // If animated vector ever moves beyond existing axis extents, expand dynamically
+    const curX = Math.abs(state.vector[0]) + this.axisMargin;
+    const curY = Math.abs(state.vector[1]) + this.axisMargin;
+    const curZ = Math.abs(state.vector[2]) + this.axisMargin;
+    if (curX > this.axisExtents.x + 0.1 || curY > this.axisExtents.y + 0.1 || curZ > this.axisExtents.z + 0.1) {
+      const newExtents = {
+        x: Math.max(this.axisExtents.x, curX),
+        y: Math.max(this.axisExtents.y, curY),
+        z: Math.max(this.axisExtents.z, curZ),
+        posX: Math.max(this.axisExtents.posX, curX),
+        negX: Math.max(this.axisExtents.negX, curX),
+        posY: Math.max(this.axisExtents.posY, curY),
+        negY: Math.max(this.axisExtents.negY, curY),
+        posZ: Math.max(this.axisExtents.posZ, curZ),
+        negZ: Math.max(this.axisExtents.negZ, curZ)
+      };
+      this.updateAxes(newExtents);
+      this.updateGrid(newExtents.x, newExtents.z);
+    }
 
     // 2. Update projection drop lines
     this.updateProjectionLines(state.vector);
@@ -992,30 +1242,31 @@ export class Viewport3D {
   setCameraPreset(preset) {
     if (!this.camera) return;
     this.camera.up.set(0, 1, 0);
+    const s = this.currentCameraScale || 1.0;
 
     switch (preset) {
       case 'iso':
         // Well-proportioned isometric view ensuring all axes and labels fit completely
-        this.camera.position.set(11.0, 9.5, 13.0);
+        this.camera.position.set(11.0 * s, 9.5 * s, 13.0 * s);
         break;
       case 'front':
         // Front elevation view: XY plane (X=Right, Y=Up, looking along -Z)
-        this.camera.position.set(0, 0, 18);
+        this.camera.position.set(0, 0, 18 * s);
         this.camera.up.set(0, 1, 0);
         break;
       case 'top':
         // Top plan view: XZ plane (X=Right, Z=Depth, looking along -Y)
-        this.camera.position.set(0, 18, 0.0001);
+        this.camera.position.set(0, 18 * s, 0.0001);
         this.camera.up.set(0, 0, -1);
         break;
       case 'side':
         // Side profile view: YZ plane (Z=Right, Y=Up, looking along -X)
-        this.camera.position.set(18, 0, 0);
+        this.camera.position.set(18 * s, 0, 0);
         this.camera.up.set(0, 1, 0);
         break;
       case 'reset':
       default:
-        this.camera.position.set(11.0, 9.5, 13.0);
+        this.camera.position.set(11.0 * s, 9.5 * s, 13.0 * s);
         this.camera.up.set(0, 1, 0);
         break;
     }
@@ -1023,6 +1274,32 @@ export class Viewport3D {
     this.camera.lookAt(0, 0, 0);
     if (this.controls) {
       this.controls.target.set(0, 0, 0);
+      this.controls.update();
+    }
+  }
+
+  updateCameraFraming(maxCoord) {
+    if (!this.camera || !this.controls) return;
+    
+    // Default framing comfortably fits coordinates up to ~7.0
+    // Only scale out if vector coordinates genuinely exceed standard viewing range
+    const targetScale = maxCoord > 7.0 ? Math.max(1.0, maxCoord / 6.5) : 1.0;
+    
+    if (Math.abs((this.currentCameraScale || 1.0) - targetScale) < 0.04) {
+      return;
+    }
+    
+    const prevScale = this.currentCameraScale || 1.0;
+    this.currentCameraScale = targetScale;
+    
+    // Scale current camera distance from target while preserving line of sight
+    const target = this.controls.target || new THREE.Vector3(0, 0, 0);
+    const offset = this.camera.position.clone().sub(target);
+    const dist = offset.length();
+    if (dist > 0.001) {
+      const scaleFactor = targetScale / prevScale;
+      this.camera.position.copy(target).addScaledVector(offset.normalize(), dist * scaleFactor);
+      this.camera.lookAt(target);
       this.controls.update();
     }
   }
