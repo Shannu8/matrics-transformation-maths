@@ -57,6 +57,30 @@ class App {
       });
     }
 
+    // Setup Vector Coordinates visibility toggle listener
+    const coordsToggle = document.getElementById('toggle-vector-coords');
+    if (coordsToggle) {
+      const STORAGE_KEY_SHOW_COORDS = 'transformation_show_coords';
+      let initialVisible = true;
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_SHOW_COORDS);
+        if (saved !== null) {
+          initialVisible = saved === 'true';
+        }
+      } catch (_) {}
+
+      coordsToggle.checked = initialVisible;
+      this.viewport.setShowVectorCoordinates(initialVisible);
+
+      coordsToggle.addEventListener('change', (e) => {
+        const isVisible = !!e.target.checked;
+        this.viewport.setShowVectorCoordinates(isVisible);
+        try {
+          localStorage.setItem(STORAGE_KEY_SHOW_COORDS, String(isVisible));
+        } catch (_) {}
+      });
+    }
+
     // Setup Report Download Button listeners
     ['btn-download-pdf', 'btn-header-pdf', 'btn-viewport-pdf'].forEach(id => {
       const btn = document.getElementById(id);
@@ -204,11 +228,67 @@ class App {
     const drawer = document.getElementById('left-drawer');
     const drawerHandle = document.getElementById('btn-left-drawer-toggle');
     const closeBtn = document.getElementById('btn-drawer-close');
+    const resizer = document.getElementById('sidebar-resizer');
 
     if (!drawer || !drawerHandle) return;
 
     const openIcon = drawerHandle.querySelector('.handle-icon-open');
     const closeIcon = drawerHandle.querySelector('.handle-icon-close');
+
+    const STORAGE_KEY_SIDEBAR_WIDTH = 'transformation_sidebar_width';
+    const DEFAULT_WIDTH = 440;
+    const MIN_WIDTH = 320;
+
+    const getResponsiveLimits = () => {
+      const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
+      // Preserve at least 340px for main 3D visualization, max 75% of viewport width
+      const maxWidth = Math.max(MIN_WIDTH, Math.min(Math.floor(vw * 0.72), vw - 340));
+      return { minWidth: MIN_WIDTH, maxWidth };
+    };
+
+    let currentWidth = DEFAULT_WIDTH;
+
+    // Load persisted width if valid
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SIDEBAR_WIDTH);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= MIN_WIDTH) {
+          currentWidth = parsed;
+        }
+      }
+    } catch (_) {}
+
+    const applyWidth = (width, persist = true) => {
+      const { minWidth, maxWidth } = getResponsiveLimits();
+      const clamped = Math.max(minWidth, Math.min(maxWidth, Math.round(width)));
+      currentWidth = clamped;
+
+      document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
+      if (window.innerWidth > 768) {
+        drawer.style.width = `${clamped}px`;
+      } else {
+        drawer.style.width = '';
+      }
+
+      if (resizer) {
+        resizer.setAttribute('aria-valuenow', String(clamped));
+        resizer.setAttribute('aria-valuemin', String(minWidth));
+        resizer.setAttribute('aria-valuemax', String(maxWidth));
+      }
+
+      if (persist) {
+        try {
+          localStorage.setItem(STORAGE_KEY_SIDEBAR_WIDTH, String(clamped));
+        } catch (_) {}
+      }
+
+      this.viewport?.handleResize();
+      return clamped;
+    };
+
+    // Apply initial clamped width
+    applyWidth(currentWidth, false);
 
     const setDrawerOpen = (open) => {
       if (open) {
@@ -219,6 +299,7 @@ class App {
         drawerHandle.setAttribute('aria-label', 'Close transformation controls');
         if (openIcon) openIcon.classList.add('hidden');
         if (closeIcon) closeIcon.classList.remove('hidden');
+        applyWidth(currentWidth, false);
       } else {
         drawer.classList.remove('drawer-open');
         drawerHandle.classList.remove('drawer-open');
@@ -228,6 +309,12 @@ class App {
         if (openIcon) openIcon.classList.remove('hidden');
         if (closeIcon) closeIcon.classList.add('hidden');
       }
+
+      // Smoothly update viewport aspect ratio during/after slide transition
+      this.viewport?.handleResize();
+      setTimeout(() => {
+        this.viewport?.handleResize();
+      }, 280);
     };
 
     drawerHandle.addEventListener('click', (e) => {
@@ -242,6 +329,84 @@ class App {
         setDrawerOpen(false);
       });
     }
+
+    // Drag-to-Resize Implementation (Antigravity IDE / VS Code Style)
+    if (resizer) {
+      let isDragging = false;
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+        if (clientX === undefined) return;
+        applyWidth(clientX, false);
+      };
+
+      const onPointerUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove('is-resizing');
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+        window.removeEventListener('touchmove', onPointerMove);
+        window.removeEventListener('touchend', onPointerUp);
+
+        // Persist final width and trigger canvas resize
+        applyWidth(currentWidth, true);
+      };
+
+      const onPointerDown = (e) => {
+        // Only trigger on primary button (left mouse click or touch)
+        if (e.button !== undefined && e.button !== 0) return;
+        if (window.innerWidth <= 768) return; // In mobile view, drawer is full overlay
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        isDragging = true;
+        document.body.classList.add('is-resizing');
+
+        window.addEventListener('pointermove', onPointerMove, { passive: false });
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+      };
+
+      resizer.addEventListener('pointerdown', onPointerDown);
+      resizer.addEventListener('mousedown', onPointerDown);
+      resizer.addEventListener('touchstart', onPointerDown, { passive: false });
+
+      // Keyboard Accessibility for Resizer
+      resizer.addEventListener('keydown', (e) => {
+        if (window.innerWidth <= 768) return;
+        const step = e.shiftKey ? 40 : 16;
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          applyWidth(currentWidth + step, true);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          applyWidth(currentWidth - step, true);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          const { minWidth } = getResponsiveLimits();
+          applyWidth(minWidth, true);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          const { maxWidth } = getResponsiveLimits();
+          applyWidth(maxWidth, true);
+        }
+      });
+    }
+
+    // Window resize handler: adapt constraints dynamically when window is resized
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768 && drawer.classList.contains('drawer-open')) {
+        applyWidth(currentWidth, false);
+      }
+    });
 
     // Drawer internal tab navigation (Inputs & Matrices vs Results & Analysis)
     const drawerTabs = document.querySelectorAll('.drawer-tab-btn');

@@ -222,6 +222,10 @@
             </div>
           </div>
         </div>
+        <!-- Draggable Resizer on Right Edge of Left Drawer -->
+        <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize sidebar (or use Left/Right arrow keys)" aria-label="Resize sidebar" aria-valuenow="440" aria-valuemin="320" aria-valuemax="800">
+          <div class="resizer-knob"></div>
+        </div>
       </aside>
 
       <!-- Center: 3D Visualization Workspace -->
@@ -247,6 +251,10 @@
               <label class="toggle-control ref-vectors-toggle" for="toggle-reference-vectors" title="Show muted reference vectors for comparison">
                 <input type="checkbox" id="toggle-reference-vectors" />
                 <span class="toggle-label-text">Ref vectors</span>
+              </label>
+              <label class="toggle-control vector-coords-toggle" for="toggle-vector-coords" title="Show or hide numerical vector coordinates in 3D scene">
+                <input type="checkbox" id="toggle-vector-coords" checked />
+                <span class="toggle-label-text">Show Vector Coordinates</span>
               </label>
               <div class="viewport-divider"></div>
               <button id="btn-viewport-pdf" class="btn btn-icon btn-compact" title="Download Educational PDF Report" aria-label="Download PDF Report">

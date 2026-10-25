@@ -38,6 +38,10 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+
+  /* Resizable Sidebar */
+  --sidebar-width: 440px;
+  --sidebar-min-width: 320px;
 }
 
 * {
@@ -180,7 +184,7 @@ body {
 
 .main-content-area {
   flex: 1;
-  width: 100%;
+  min-width: 0;
   height: 100%;
   position: relative;
   overflow: hidden;
@@ -219,11 +223,11 @@ body {
 
 /* Permanently visible pull-out handle on left edge */
 .drawer-handle-left {
-  position: fixed;
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   left: 0;
-  z-index: 220;
+  z-index: 120;
   width: 32px;
   height: 68px;
   background: #1e293b;
@@ -261,38 +265,96 @@ body {
 
 /* When drawer is open, handle moves smoothly with drawer edge */
 .drawer-handle-left.drawer-open {
-  left: 440px;
+  left: var(--sidebar-width, 440px);
   border-left: 1.5px solid #38bdf8;
   border-radius: 0 8px 8px 0;
 }
 
-@media (max-width: 500px) {
-  .drawer-handle-left.drawer-open {
-    left: 90vw;
-  }
-}
-
-/* Left Controls & Results Drawer (Solid Opaque Background) */
+/* Left Controls & Results Drawer (Solid Opaque Background, Side-by-Side Flex Layout) */
 .left-drawer {
-  position: fixed;
-  left: 0;
-  top: 56px;
-  bottom: 0;
-  width: 440px;
-  max-width: 90vw;
+  position: relative;
+  width: var(--sidebar-width, 440px);
+  min-width: var(--sidebar-min-width, 320px);
+  max-width: 80vw;
+  height: 100%;
   background: #0b0f19;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 12px 0 38px rgba(0, 0, 0, 0.8);
-  z-index: 200;
-  transform: translateX(-100%);
-  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
+  z-index: 50;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.26s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.left-drawer.drawer-open {
-  transform: translateX(0);
+.left-drawer:not(.drawer-open) {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right: none;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Sidebar Draggable Resizer (Antigravity IDE / VS Code Style) */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
+  transition: background-color 0.15s ease;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+body.is-resizing .sidebar-resizer {
+  background-color: rgba(56, 189, 248, 0.25);
+}
+
+.sidebar-resizer:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: -1px;
+}
+
+.resizer-knob {
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.25);
+  transition: all 0.15s ease;
+  pointer-events: none;
+}
+
+.sidebar-resizer:hover .resizer-knob,
+body.is-resizing .sidebar-resizer .resizer-knob {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+  height: 56px;
+}
+
+body.is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing .left-drawer,
+body.is-resizing .drawer-handle-left,
+body.is-resizing .main-content-area {
+  transition: none !important;
 }
 
 /* Drawer Header */
@@ -869,6 +931,27 @@ body {
 }
 
 .ref-vectors-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.vector-coords-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.vector-coords-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
@@ -1536,13 +1619,34 @@ body {
 
   /* Pull-Out Left Drawer on Mobile */
   .left-drawer {
+    position: fixed;
+    top: 52px;
+    bottom: 0;
+    left: 0;
     width: 100vw;
     max-width: 100vw;
-    top: 52px;
+    transform: translateX(-100%);
+    transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 200;
+  }
+
+  .left-drawer.drawer-open {
+    transform: translateX(0);
+    width: 100vw !important;
+  }
+
+  .left-drawer:not(.drawer-open) {
+    transform: translateX(-100%);
+    width: 100vw !important;
+    visibility: hidden;
   }
 
   .drawer-handle-left.drawer-open {
     display: none; /* User uses the close button inside the drawer */
+  }
+
+  .sidebar-resizer {
+    display: none !important;
   }
 
   .drawer-tabs-nav {
@@ -1575,7 +1679,8 @@ body {
   }
 
   .unit-cube-toggle,
-  .ref-vectors-toggle {
+  .ref-vectors-toggle,
+  .vector-coords-toggle {
     padding: 4px 6px;
     font-size: 0.7rem;
   }

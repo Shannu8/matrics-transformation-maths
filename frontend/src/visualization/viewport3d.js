@@ -84,6 +84,7 @@ export class Viewport3D {
     // 2. Optional reference vectors group (hidden by default)
     this.referenceGroup = null;
     this.showReferenceVectors = false;
+    this.showVectorCoordinates = true;
 
     // 3. Coordinate Guides and Transformed Geometry
     this.geometryGroup = null;
@@ -559,7 +560,7 @@ export class Viewport3D {
 
     // 4. Tip coordinate & step badge (Billboard text sprite)
     this.primaryLabelSprite = createTextSprite('v₀: (1.00, 1.00, 1.00)', '#38bdf8', 22, 280, 60);
-    this.primaryLabelSprite.visible = true;
+    this.primaryLabelSprite.visible = this.showVectorCoordinates;
     this.primaryArrowGroup.add(this.primaryLabelSprite);
 
     this.scene.add(this.primaryArrowGroup);
@@ -608,7 +609,7 @@ export class Viewport3D {
       this.primaryTipMesh.position.set(0, 0, 0);
       this.primaryTipMesh.visible = true;
       if (this.primaryLabelSprite) {
-        this.primaryLabelSprite.visible = true;
+        this.primaryLabelSprite.visible = this.showVectorCoordinates;
         this.primaryLabelSprite.position.set(0, 0.35, 0);
         if (labelText) {
           this.updateLabelSprite(this.primaryLabelSprite, labelText, '#38bdf8');
@@ -643,13 +644,31 @@ export class Viewport3D {
 
     // Position label directly above the arrowhead (NO horizontal X/Z offset!)
     if (this.primaryLabelSprite) {
-      this.primaryLabelSprite.visible = true;
+      this.primaryLabelSprite.visible = this.showVectorCoordinates;
       const verticalOffset = v.y < -0.5 ? -0.38 : 0.38;
       this.primaryLabelSprite.position.set(v.x, v.y + verticalOffset, v.z);
       if (labelText) {
         this.updateLabelSprite(this.primaryLabelSprite, labelText, '#38bdf8');
       }
     }
+  }
+
+  setShowVectorCoordinates(visible) {
+    this.showVectorCoordinates = !!visible;
+    if (this.primaryLabelSprite) {
+      this.primaryLabelSprite.visible = this.showVectorCoordinates;
+    }
+    if (this.referenceGroup) {
+      this.referenceGroup.traverse((child) => {
+        if (child.isSprite) {
+          child.visible = this.showVectorCoordinates;
+        }
+      });
+    }
+  }
+
+  getShowVectorCoordinates() {
+    return this.showVectorCoordinates;
   }
 
   setShowReferenceVectors(show) {
@@ -701,6 +720,7 @@ export class Viewport3D {
       labelSp.material.opacity = 0.65;
       labelSp.scale.set(1.1, 0.32, 1.0);
       labelSp.position.set(v.x, v.y + 0.30, v.z);
+      labelSp.visible = this.showVectorCoordinates;
       group.add(labelSp);
 
       this.referenceGroup.add(group);
