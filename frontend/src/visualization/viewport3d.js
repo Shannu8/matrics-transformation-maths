@@ -38,7 +38,7 @@ function createTextSprite(text, color = '#ffffff', fontSize = 24, width = 280, h
 /**
  * Small integer numeric label for axis ticks.
  */
-function createNumericSprite(numStr, color = '#94a3b8') {
+function createNumericSprite(numStr, color = '#94a3b8', opacity = 1.0) {
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -52,9 +52,17 @@ function createNumericSprite(numStr, color = '#94a3b8') {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
-  const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+  const safeOpacity = Math.max(0.0, Math.min(1.0, Number.isFinite(opacity) ? opacity : 1.0));
+  const spriteMat = new THREE.SpriteMaterial({
+    map: texture,
+    depthTest: false,
+    transparent: true,
+    opacity: safeOpacity
+  });
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(0.38, 0.38, 1.0);
+  sprite.userData = { isNumericTick: true };
+  sprite.visible = safeOpacity > 0.001;
   return sprite;
 }
 
@@ -110,6 +118,7 @@ export class Viewport3D {
     };
     this.axisGroup = null;
     this.gridHelper = null;
+    this.axisMeasurementOpacity = 1.0;
 
     // Animation & Sequence State
     this.pipelineResult = null;
@@ -422,7 +431,7 @@ export class Viewport3D {
         new THREE.Vector3(i, 0.08, 0)
       ]);
       this.axisGroup.add(new THREE.Line(geom, tickMat));
-      const sp = createNumericSprite(String(i), '#ef4444');
+      const sp = createNumericSprite(String(i), '#ef4444', this.axisMeasurementOpacity);
       sp.position.set(i, 0, 0.28);
       this.axisGroup.add(sp);
     }
@@ -436,7 +445,7 @@ export class Viewport3D {
         new THREE.Vector3(0.08, i, 0)
       ]);
       this.axisGroup.add(new THREE.Line(geom, tickMat));
-      const sp = createNumericSprite(String(i), '#22c55e');
+      const sp = createNumericSprite(String(i), '#22c55e', this.axisMeasurementOpacity);
       sp.position.set(0.28, i, 0);
       this.axisGroup.add(sp);
     }
@@ -450,7 +459,7 @@ export class Viewport3D {
         new THREE.Vector3(0.08, 0, i)
       ]);
       this.axisGroup.add(new THREE.Line(geom, tickMat));
-      const sp = createNumericSprite(String(i), '#3b82f6');
+      const sp = createNumericSprite(String(i), '#3b82f6', this.axisMeasurementOpacity);
       sp.position.set(0.28, 0, i);
       this.axisGroup.add(sp);
     }
@@ -672,6 +681,26 @@ export class Viewport3D {
 
   getShowVectorCoordinates() {
     return this.showVectorCoordinates;
+  }
+
+  setAxisMeasurementOpacity(opacity) {
+    const val = Math.max(0.0, Math.min(1.0, Number(opacity)));
+    this.axisMeasurementOpacity = Number.isFinite(val) ? val : 1.0;
+    if (!this.axisGroup) return;
+    this.axisGroup.traverse((child) => {
+      if (child.isSprite && child.userData && child.userData.isNumericTick) {
+        if (child.material) {
+          child.material.transparent = true;
+          child.material.opacity = this.axisMeasurementOpacity;
+          child.material.needsUpdate = true;
+        }
+        child.visible = this.axisMeasurementOpacity > 0.001;
+      }
+    });
+  }
+
+  getAxisMeasurementOpacity() {
+    return this.axisMeasurementOpacity !== undefined ? this.axisMeasurementOpacity : 1.0;
   }
 
   setShowReferenceVectors(show) {

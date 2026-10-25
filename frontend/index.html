@@ -212,6 +212,102 @@
                 </div>
               </div>
 
+              <!-- Mathematical Practice Challenges Card -->
+              <div class="control-card practice-challenge-card" id="practice-challenge-card">
+                <div class="practice-header">
+                  <div class="practice-title-group">
+                    <span class="practice-badge">PRACTICE LAB</span>
+                    <h4 class="practice-title">Mathematical Practice Challenges</h4>
+                  </div>
+                  <div class="difficulty-selector" role="group" aria-label="Challenge Difficulty">
+                    <button type="button" class="diff-btn" data-diff="easy" id="diff-btn-easy">Easy</button>
+                    <button type="button" class="diff-btn active" data-diff="medium" id="diff-btn-medium">Medium</button>
+                    <button type="button" class="diff-btn" data-diff="hard" id="diff-btn-hard">Hard</button>
+                  </div>
+                </div>
+
+                <div class="practice-actions-row">
+                  <button type="button" id="btn-randomize-challenge" class="btn btn-primary btn-randomize" title="Generate a varied, mathematically verified practice challenge">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                    <span>Randomize</span>
+                  </button>
+                  <button type="button" id="btn-practice-try" class="btn btn-outline btn-try-studio" title="Load this challenge into the transformation sequence and 3D studio">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span>Try it in Studio</span>
+                  </button>
+                </div>
+
+                <div id="practice-challenge-body" class="practice-challenge-body">
+                  <div class="challenge-meta">
+                    <span id="challenge-diff-badge" class="badge-tag badge-medium">Medium</span>
+                    <span id="challenge-category" class="challenge-category-text">Loading challenge category...</span>
+                  </div>
+
+                  <h5 id="challenge-heading" class="challenge-heading">Mathematical Challenge</h5>
+                  <p id="challenge-prompt" class="challenge-prompt"></p>
+
+                  <div class="challenge-given-box">
+                    <div class="given-label">Given Information:</div>
+                    <div id="challenge-given-v0" class="given-item"></div>
+                    <div id="challenge-given-trans" class="given-item"></div>
+                  </div>
+
+                  <!-- Interactive Student Answer Check -->
+                  <div class="practice-answer-section">
+                    <div class="answer-check-label">Check Your Calculated Result:</div>
+                    <div class="answer-input-row">
+                      <div class="answer-input-group">
+                        <label for="practice-ans-x">x'</label>
+                        <input type="text" id="practice-ans-x" placeholder="x" />
+                      </div>
+                      <div class="answer-input-group">
+                        <label for="practice-ans-y">y'</label>
+                        <input type="text" id="practice-ans-y" placeholder="y" />
+                      </div>
+                      <div class="answer-input-group">
+                        <label for="practice-ans-z">z'</label>
+                        <input type="text" id="practice-ans-z" placeholder="z" />
+                      </div>
+                      <button type="button" id="btn-practice-check" class="btn btn-outline btn-check-answer">Check Answer</button>
+                      <button type="button" id="btn-practice-fill-studio" class="btn btn-ghost btn-sm" title="Use current Studio vector result">Use Studio v'</button>
+                    </div>
+                    <div id="practice-feedback-alert" class="alert-banner hidden"></div>
+                  </div>
+
+                  <!-- Step-by-Step Educational Explanation Accordion -->
+                  <div class="practice-explanation-section">
+                    <button type="button" id="btn-toggle-explanation" class="btn btn-ghost explanation-toggle-btn">
+                      <svg class="chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                      <span>Reveal Step-by-Step Explanation</span>
+                    </button>
+                    <div id="practice-explanation-drawer" class="explanation-drawer hidden">
+                      <div class="explanation-formula-box">
+                        <div class="explanation-subhead">Algebraic Formula</div>
+                        <div id="explanation-formula" class="code-font formula-text"></div>
+                      </div>
+                      <div class="explanation-steps-box">
+                        <div class="explanation-subhead">Step-by-Step Arithmetic</div>
+                        <ol id="explanation-steps-list" class="steps-list"></ol>
+                      </div>
+                      <div class="explanation-matrix-box">
+                        <div class="explanation-subhead">Matrix Analysis</div>
+                        <div id="explanation-matrix-text" class="matrix-text"></div>
+                      </div>
+                      <div class="explanation-geometric-box">
+                        <div class="explanation-subhead">Geometric Meaning in 3D</div>
+                        <div id="explanation-geometric-text" class="geometric-text"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Calculate Button -->
               <div class="action-btn-row">
                 <button id="btn-calculate" class="btn btn-primary btn-large">
@@ -290,6 +386,23 @@
                 <input type="checkbox" id="toggle-vector-coords" checked />
                 <span class="toggle-label-text">Show Vector Coordinates</span>
               </label>
+              <div class="viewport-divider"></div>
+              <div class="axis-transparency-control" title="Axis Measurement Transparency: adjust visibility of numerical measurement labels along X, Y, and Z axes">
+                <label for="slider-axis-transparency" class="axis-transparency-label">
+                  <span class="axis-transparency-title">Axis Numbers:</span>
+                  <span id="axis-transparency-val" class="axis-transparency-val">100%</span>
+                </label>
+                <input 
+                  type="range" 
+                  id="slider-axis-transparency" 
+                  class="axis-transparency-slider" 
+                  min="0" 
+                  max="100" 
+                  step="5" 
+                  value="100" 
+                  aria-label="Axis Measurement Transparency"
+                />
+              </div>
               <div class="viewport-divider"></div>
               <button id="btn-viewport-pdf" class="btn btn-icon btn-compact" title="Download Educational PDF Report" aria-label="Download PDF Report">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">

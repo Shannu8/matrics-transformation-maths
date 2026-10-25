@@ -113,6 +113,9 @@ export class ReportBuilder {
 
   build() {
     this.renderHeaderCover();
+    if (this.res.practiceChallenge) {
+      this.renderPracticeChallengeSection();
+    }
     this.renderSection1Overview();
     this.renderSection2InitialVector();
     this.renderSection3Transformations();
@@ -400,6 +403,61 @@ export class ReportBuilder {
     }
 
     this.y += cardH + 10;
+  }
+
+  renderPracticeChallengeSection() {
+    const chal = this.res.practiceChallenge;
+    if (!chal) return;
+
+    this.checkPageBreak(50);
+    this.renderSectionHeading(
+      'Practice Challenge & Problem Context',
+      `Challenge ID: ${chal.id || 'N/A'} • Difficulty Tier: ${chal.difficulty || 'Medium'}`
+    );
+
+    const promptText = `Challenge Question: ${chal.challenge || chal.title}`;
+    const promptLines = this.doc.splitTextToSize(promptText, this.contentWidth - 14);
+    const boxH = Math.max(34, promptLines.length * 4.8 + 24);
+
+    this.checkPageBreak(boxH + 8);
+    this.drawCard(this.marginLeft, this.y, this.contentWidth, boxH, [248, 250, 252], [14, 165, 233]);
+
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setFontSize(10);
+    this.doc.setTextColor(...this.colors.primaryDark);
+    this.doc.text(`Title: ${chal.title}`, this.marginLeft + 6, this.y + 7.5);
+
+    const diffType = (chal.difficulty || '').toLowerCase() === 'easy' ? 'success' : ((chal.difficulty || '').toLowerCase() === 'hard' ? 'error' : 'warning');
+    this.drawBadge(`Difficulty: ${chal.difficulty}`, this.marginLeft + this.contentWidth - 38, this.y + 7.5, diffType);
+
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(...this.colors.bodyText);
+    this.doc.text(promptLines, this.marginLeft + 6, this.y + 14);
+
+    const rExpectedY = this.y + promptLines.length * 4.8 + 17;
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setFontSize(8.5);
+    this.doc.setTextColor(...this.colors.brandBlue);
+    this.doc.text('Expected Result Vector v\':', this.marginLeft + 6, rExpectedY);
+    this.doc.setFont('courier', 'bold');
+    this.doc.setFontSize(9);
+    this.doc.text(this.formatVec(chal.expected?.composedVector, 3), this.marginLeft + 52, rExpectedY);
+
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setFontSize(8.5);
+    this.doc.setTextColor(...this.colors.bodyText);
+    this.doc.text('Status:', this.marginLeft + 115, rExpectedY);
+    this.drawBadge('MATHEMATICALLY VERIFIED ✓', this.marginLeft + 128, rExpectedY + 0.5, 'success');
+
+    this.y += boxH + 8;
+
+    if (chal.explanation && chal.explanation.formula) {
+      this.renderTutorNote(
+        `Pedagogical Derivation: ${chal.explanation.formula}\nGeometric Meaning: ${chal.geometricMeaning || 'Rigid linear transformation preserving origin.'}`,
+        'PRACTICE EXPLANATION'
+      );
+    }
   }
 
   renderSection1Overview() {

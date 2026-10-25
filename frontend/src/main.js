@@ -3,6 +3,7 @@ import { Viewport3D } from './visualization/viewport3d.js';
 import { MatrixInputsManager } from './ui/matrixInputs.js';
 import { ResultsPanel } from './ui/resultsPanel.js';
 import { ReportGenerator } from './report/reportGenerator.js';
+import { PracticeGenerator } from './practice/practiceGenerator.js';
 
 class App {
   constructor() {
@@ -12,6 +13,9 @@ class App {
     this.resultsPanel = null;
     this.currentResult = null;
     this.isUserScrubbing = false;
+    this.currentChallenge = null;
+    this.currentDifficulty = 'medium';
+    this.activePracticeChallenge = null;
   }
 
   async init() {
@@ -81,6 +85,39 @@ class App {
       });
     }
 
+    // Setup Axis Measurement Transparency Slider listener
+    const axisTransSlider = document.getElementById('slider-axis-transparency');
+    const axisTransVal = document.getElementById('axis-transparency-val');
+    if (axisTransSlider) {
+      const STORAGE_KEY_AXIS_OPACITY = 'transformation_axis_transparency';
+      let initialOpacityVal = 100;
+      try {
+        const savedOpacity = localStorage.getItem(STORAGE_KEY_AXIS_OPACITY);
+        if (savedOpacity !== null) {
+          const parsed = Number(savedOpacity);
+          if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 100) {
+            initialOpacityVal = parsed;
+          }
+        }
+      } catch (_) {}
+
+      axisTransSlider.value = initialOpacityVal;
+      if (axisTransVal) axisTransVal.textContent = `${initialOpacityVal}%`;
+      this.viewport.setAxisMeasurementOpacity(initialOpacityVal / 100.0);
+
+      const updateOpacity = (val) => {
+        const numVal = Math.max(0, Math.min(100, Number(val)));
+        if (axisTransVal) axisTransVal.textContent = `${numVal}%`;
+        this.viewport.setAxisMeasurementOpacity(numVal / 100.0);
+        try {
+          localStorage.setItem(STORAGE_KEY_AXIS_OPACITY, String(numVal));
+        } catch (_) {}
+      };
+
+      axisTransSlider.addEventListener('input', (e) => updateOpacity(e.target.value));
+      axisTransSlider.addEventListener('change', (e) => updateOpacity(e.target.value));
+    }
+
     // Setup Report Download Button listeners
     ['btn-download-pdf', 'btn-header-pdf', 'btn-viewport-pdf'].forEach(id => {
       const btn = document.getElementById(id);
@@ -122,7 +159,24 @@ class App {
       calcBtn.addEventListener('click', () => this.recalculate());
     }
 
-    // 11. Load default state: v = (1, 1, 1) with identity transformations
+    // 11. Clear active practice challenge when handbook examples are clicked
+    const handbookExampleIds = [
+      'load-ex-111', 'load-ex-roty45', 'load-ex-scale2', 'load-ex-reflectyz',
+      'load-ex-rotx45', 'load-ex-12-2', 'load-ex-12-3', 'load-ex-singular'
+    ];
+    handbookExampleIds.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', () => {
+          this.activePracticeChallenge = null;
+        });
+      }
+    });
+
+    // 12. Setup Practice Challenges Card
+    this.setupPracticeChallenges();
+
+    // 13. Load default state: v = (1, 1, 1) with identity transformations
     const exBtn = document.getElementById('load-ex-111');
     if (exBtn) {
       exBtn.click();
@@ -190,6 +244,10 @@ class App {
             st.params = details[idx].params;
           }
         });
+      }
+
+      if (this.activePracticeChallenge) {
+        res.practiceChallenge = this.activePracticeChallenge;
       }
     }
 
@@ -718,6 +776,211 @@ class App {
     const drawerEl = document.getElementById('left-drawer');
     if (drawerEl) {
       drawerEl.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+    }
+  }
+
+  setupPracticeChallenges() {
+    const diffButtons = document.querySelectorAll('.diff-btn');
+    const randBtn = document.getElementById('btn-randomize-challenge');
+    const tryBtn = document.getElementById('btn-practice-try');
+    const checkBtn = document.getElementById('btn-practice-check');
+    const fillStudioBtn = document.getElementById('btn-practice-fill-studio');
+    const toggleExplBtn = document.getElementById('btn-toggle-explanation');
+
+    // Difficulty selection
+    diffButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        diffButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.currentDifficulty = btn.getAttribute('data-diff') || 'medium';
+        this.generateNewPracticeChallenge();
+      });
+    });
+
+    // Randomize button
+    if (randBtn) {
+      randBtn.addEventListener('click', () => {
+        this.generateNewPracticeChallenge();
+      });
+    }
+
+    // Try in Studio button
+    if (tryBtn) {
+      tryBtn.addEventListener('click', () => {
+        if (!this.currentChallenge) return;
+        this.loadPracticeChallengeIntoStudio(this.currentChallenge);
+      });
+    }
+
+    // Check Answer button
+    if (checkBtn) {
+      checkBtn.addEventListener('click', () => {
+        this.checkPracticeAnswer();
+      });
+    }
+
+    // Use Studio v' button
+    if (fillStudioBtn) {
+      fillStudioBtn.addEventListener('click', () => {
+        if (!this.currentResult || !this.currentResult.finalSequentialVector) {
+          alert('Run Compute & Verify in the studio first to produce a vector result.');
+          return;
+        }
+        const v = this.currentResult.finalSequentialVector;
+        const ansX = document.getElementById('practice-ans-x');
+        const ansY = document.getElementById('practice-ans-y');
+        const ansZ = document.getElementById('practice-ans-z');
+        if (ansX) ansX.value = PracticeGenerator.formatNum(v[0], 3);
+        if (ansY) ansY.value = PracticeGenerator.formatNum(v[1], 3);
+        if (ansZ) ansZ.value = PracticeGenerator.formatNum(v[2], 3);
+      });
+    }
+
+    // Toggle Explanation Accordion
+    if (toggleExplBtn) {
+      toggleExplBtn.addEventListener('click', () => {
+        const drawer = document.getElementById('practice-explanation-drawer');
+        if (!drawer) return;
+        const isHidden = drawer.classList.contains('hidden');
+        if (isHidden) {
+          drawer.classList.remove('hidden');
+          toggleExplBtn.classList.add('expanded');
+          const span = toggleExplBtn.querySelector('span');
+          if (span) span.textContent = 'Hide Step-by-Step Explanation';
+        } else {
+          drawer.classList.add('hidden');
+          toggleExplBtn.classList.remove('expanded');
+          const span = toggleExplBtn.querySelector('span');
+          if (span) span.textContent = 'Reveal Step-by-Step Explanation';
+        }
+      });
+    }
+
+    // Generate initial challenge
+    this.generateNewPracticeChallenge();
+  }
+
+  generateNewPracticeChallenge() {
+    const prevId = this.currentChallenge ? this.currentChallenge.id : null;
+    const chal = PracticeGenerator.generateChallenge(this.currentDifficulty, prevId);
+    if (!chal) return;
+
+    this.currentChallenge = chal;
+    this.renderPracticeChallengeUI(chal);
+  }
+
+  renderPracticeChallengeUI(chal) {
+    const diffBadge = document.getElementById('challenge-diff-badge');
+    const categoryText = document.getElementById('challenge-category');
+    const heading = document.getElementById('challenge-heading');
+    const prompt = document.getElementById('challenge-prompt');
+    const givenV0 = document.getElementById('challenge-given-v0');
+    const givenTrans = document.getElementById('challenge-given-trans');
+    const feedbackAlert = document.getElementById('practice-feedback-alert');
+    const formulaText = document.getElementById('explanation-formula');
+    const stepsList = document.getElementById('explanation-steps-list');
+    const matrixText = document.getElementById('explanation-matrix-text');
+    const geometricText = document.getElementById('explanation-geometric-text');
+    const drawer = document.getElementById('practice-explanation-drawer');
+    const toggleExplBtn = document.getElementById('btn-toggle-explanation');
+
+    if (diffBadge) {
+      diffBadge.textContent = chal.difficulty;
+      diffBadge.className = `badge-tag badge-${chal.difficulty.toLowerCase()}`;
+    }
+    if (categoryText) categoryText.textContent = chal.category || '';
+    if (heading) heading.textContent = chal.title;
+    if (prompt) prompt.textContent = chal.challenge;
+
+    if (givenV0) {
+      givenV0.textContent = `• Input Vector v₀ = ${PracticeGenerator.formatVec(chal.given.v0)}`;
+    }
+    if (givenTrans) {
+      const transSummary = chal.given.transformations.map(t => `${t.name}: ${t.title}`).join(' → ');
+      givenTrans.textContent = `• Transformations: ${transSummary}`;
+    }
+
+    // Reset inputs & feedback
+    const ansX = document.getElementById('practice-ans-x');
+    const ansY = document.getElementById('practice-ans-y');
+    const ansZ = document.getElementById('practice-ans-z');
+    if (ansX) ansX.value = '';
+    if (ansY) ansY.value = '';
+    if (ansZ) ansZ.value = '';
+
+    if (feedbackAlert) {
+      feedbackAlert.className = 'practice-feedback-alert hidden';
+      feedbackAlert.textContent = '';
+    }
+
+    // Reset explanation drawer to hidden
+    if (drawer) drawer.classList.add('hidden');
+    if (toggleExplBtn) {
+      toggleExplBtn.classList.remove('expanded');
+      const span = toggleExplBtn.querySelector('span');
+      if (span) span.textContent = 'Reveal Step-by-Step Explanation';
+    }
+
+    if (formulaText) formulaText.textContent = chal.explanation?.formula || '';
+    if (stepsList) {
+      stepsList.innerHTML = (chal.explanation?.steps || []).map(s => `<li>${s}</li>`).join('');
+    }
+    if (matrixText) matrixText.textContent = chal.explanation?.matrixArithmetic || '';
+    if (geometricText) geometricText.textContent = chal.geometricMeaning || '';
+  }
+
+  loadPracticeChallengeIntoStudio(chal) {
+    if (!chal || !this.inputsManager) return;
+
+    this.activePracticeChallenge = chal;
+
+    // 1. Set input vector
+    this.inputsManager.setVector(chal.given.v0);
+
+    // 2. Set transformations
+    this.inputsManager.transformations = [];
+    chal.given.transformations.forEach((t) => {
+      const item = this.inputsManager.addTransformation(t.type, false);
+      if (t.params) item.params = { ...t.params };
+      if (t.matrix) item.matrix = [...t.matrix];
+      if (t.matrixExpressions) item.matrixExpressions = [...t.matrixExpressions];
+    });
+
+    this.inputsManager.renderAllCards();
+    this.inputsManager.notifyChange();
+
+    // Visual feedback
+    const feedbackAlert = document.getElementById('practice-feedback-alert');
+    if (feedbackAlert) {
+      feedbackAlert.className = 'practice-feedback-alert success';
+      feedbackAlert.textContent = `Loaded challenge "${chal.title}" into the studio. 3D visualization and transformations updated!`;
+    }
+  }
+
+  checkPracticeAnswer() {
+    if (!this.currentChallenge) return;
+
+    const ansX = document.getElementById('practice-ans-x');
+    const ansY = document.getElementById('practice-ans-y');
+    const ansZ = document.getElementById('practice-ans-z');
+    const feedbackAlert = document.getElementById('practice-feedback-alert');
+
+    const x = parseFloat(ansX ? ansX.value : NaN);
+    const y = parseFloat(ansY ? ansY.value : NaN);
+    const z = parseFloat(ansZ ? ansZ.value : NaN);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      if (feedbackAlert) {
+        feedbackAlert.className = 'practice-feedback-alert error';
+        feedbackAlert.textContent = 'Please enter valid numerical values for x\', y\', and z\' (or click "Use Studio v\'").';
+      }
+      return;
+    }
+
+    const report = PracticeGenerator.checkAnswer(this.currentChallenge, [x, y, z]);
+    if (feedbackAlert) {
+      feedbackAlert.className = `practice-feedback-alert ${report.correct ? 'success' : 'error'}`;
+      feedbackAlert.textContent = report.message;
     }
   }
 }
