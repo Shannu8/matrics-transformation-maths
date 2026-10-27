@@ -1,147 +1,360 @@
-# Transformation Composition & Inverse Verification System
+# Transformation Composition and Inverse Verification System
 
-[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
-[![WebAssembly](https://img.shields.io/badge/WebAssembly-Wasm-654FF0.svg)](https://webassembly.org/)
-[![Three.js](https://img.shields.io/badge/Three.js-r169-black.svg)](https://threejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
+An interactive linear algebra visualization system for exploring **matrix transformations, transformation composition, inverse matrices, and their geometric effects in 3D space**.
 
-A mathematical and visual laboratory for **3D linear transformation composition, numerical matrix inversion, scale-aware verification, and interactive 3D visualization** powered by high-performance C++17 compiled to WebAssembly.
+The project connects mathematical theory with visual experimentation, allowing users to define transformations, apply them to vectors, observe the resulting geometric changes, and verify mathematical properties through computation.
 
----
+## Overview
 
-## 🌟 Key Features
+Linear algebra is fundamental to computer graphics, robotics, computer vision, and scientific computing. However, understanding how matrices transform vectors and how multiple transformations combine can be difficult when studying equations alone.
 
-- **3×3 Matrix Transformation Pipeline**:
-  - Sequential multi-stage transformations: $\mathbf{v}' = T_3 (T_2 (T_1 \mathbf{v}))$.
-  - Right-to-left operator composition: $C = T_n \cdots T_2 T_1$.
-  - Presets: Arbitrary 3D scaling, axis rotations ($R_x, R_y, R_z$), reflections ($XY, XZ, YZ$), shearing, and identity.
-- **Pivoted Gauss-Jordan Numerical Inversion**:
-  - Robust row-partial pivoting on augmented matrix $[A \mid I]$.
-  - Scale-aware singularity detection ($|\text{pivot}| \ge 10^{-12} \cdot \|A\|_\infty$).
-  - Residual matrix verification: $E_1 = I - C C^{-1}$, relative residual $r$, and condition number $\kappa_\infty(C)$.
-  - Reversal law verification: $(T_n \cdots T_1)^{-1} = T_1^{-1} \cdots T_n^{-1}$.
-  - Vector recovery: $\mathbf{v}_{\text{rec}} = C^{-1}(C\mathbf{v}_0)$ with residual $\|\mathbf{v}_{\text{rec}} - \mathbf{v}_0\|_2 < 10^{-9}$.
-- **Faithful 3D Coordinate Visualization (Three.js)**:
-  - True 1:1 right-handed mapping: $+X$ (Red, right), $+Y$ (Green, vertical UP), $+Z$ (Blue, forward/depth).
-  - Solid 3D vector mesh with emissive material, directional tip cone, and origin anchor at $(0,0,0)$.
-  - Integer tick marks and numeric labels along all axes ($-5 \dots +5$).
-  - Dynamic in-place vector animation with smooth continuous interpolation.
-  - Dedicated Fullscreen Workspace with pull-out drawer panels.
-- **Downloadable Educational PDF Report**:
-  - One-click export of an A4 educational experiment report (`transformation-report-YYYY-MM-DD.pdf`).
-  - Conversational tutoring style with step-by-step row-by-column arithmetic.
-  - Authentic Three.js scene screenshots embedded at each transformation stage.
-  - Comprehensive verification tables and reflection questions for students.
+This project provides an interactive environment where users can experiment with transformation matrices and observe their effects visually.
 
----
+The system focuses on three core areas:
 
-## 🏗️ System Architecture
+- **Transformation Visualization:** Observe how matrices transform vectors and geometric objects.
+- **Transformation Composition:** Combine multiple transformations and compare sequential application with the equivalent composite matrix.
+- **Inverse Verification:** Verify whether an inverse transformation restores the original vector or geometric configuration.
 
+The project is designed as a standalone application, with a focus on mathematical correctness, interactive visualization, and an intuitive user experience.
+
+## Features
+
+### 1. Matrix Input and Transformation Presets
+
+- Manually enter \(3 \times 3\) transformation matrices.
+- Define transformation matrices \(T_1\), \(T_2\), and optionally \(T_3\).
+- Use predefined transformation presets:
+  - Rotation
+  - Scaling
+  - Reflection
+  - Shearing
+- Enter custom vectors and observe their transformed positions.
+- Validate matrix and vector inputs before computation.
+
+### 2. Interactive 3D Visualization
+
+- Visualize transformations in a 3D coordinate system.
+- Observe the geometric effects of matrix operations.
+- Compare original and transformed vectors or objects.
+- Understand how individual transformations affect direction, magnitude, and orientation.
+
+### 3. Transformation Composition
+
+Combine two or more transformations into a single equivalent matrix.
+
+For two transformations, the composite matrix is:
+
+\[
+T = T_2T_1
+\]
+
+For a column vector \(v\):
+
+\[
+v' = T_2(T_1v) = (T_2T_1)v
+\]
+
+The system helps users compare sequential transformation with direct application of the composite matrix.
+
+> **Note:** Matrix multiplication is generally not commutative. In general, \(T_2T_1 \ne T_1T_2\).
+
+### 4. Inverse Matrix Verification
+
+- Calculate or verify the inverse of a transformation matrix.
+- Apply a transformation followed by its inverse.
+- Compare the recovered vector with the original vector.
+- Verify the identity relationship:
+
+\[
+T^{-1}T = TT^{-1} = I
+\]
+
+A matrix has an inverse only when it is nonsingular. For a square matrix, this requires:
+
+\[
+\det(T) \ne 0
+\]
+
+The system should identify singular matrices and handle cases where an inverse does not exist.
+
+### 5. Mathematical Verification
+
+The system aims to make mathematical correctness observable rather than relying only on visual output.
+
+- Compare sequential and composite transformations.
+- Verify inverse transformation results.
+- Detect invalid or singular matrices.
+- Compare computed results using an appropriate numerical tolerance.
+- Display numerical results alongside the visualization.
+
+## Technology Stack
+
+The following describes the intended framework and implementation architecture. The exact dependencies should match the versions and packages actually used in the repository.
+
+| Component | Technology | Purpose |
+|---|---|---|
+| Frontend | JavaScript / HTML / CSS | User interface and interaction |
+| Development framework | Vite | Development server and build tooling |
+| Visualization | Three.js | Interactive 3D rendering |
+| Mathematical engine | C++ | Matrix operations and transformation calculations |
+| Web compilation | Emscripten / WebAssembly | Run compiled C++ calculations in the browser |
+| Visualization foundation | `linmap3d` | Existing 3D linear transformation visualization foundation |
+| Version control | Git and GitHub | Source control and collaboration |
+
+### Framework Architecture
+
+```mermaid
+flowchart TD
+    A["User Interface"] --> B["Matrix and Vector Input"]
+    B --> C["Input Validation"]
+    C --> D["Mathematical Engine"]
+
+    D --> E["Matrix Operations"]
+    D --> F["Transformation Composition"]
+    D --> G["Inverse Verification"]
+
+    E --> H["Computed Results"]
+    F --> H
+    G --> H
+
+    H --> I["Three.js Visualization"]
+    H --> J["Numerical Verification"]
+    I --> K["Interactive 3D Scene"]
+    J --> L["Result Comparison"]
+
+    K --> M["User Feedback"]
+    L --> M
 ```
-d:/matrics-transformation-maths/
-├── engine/                       # C++17 Core Mathematical Engine
-│   ├── Vector3.hpp               # 3D Column Vector operations
-│   ├── Matrix3x3.hpp             # 3×3 Matrix operations, determinants & cofactors
-│   ├── InverseSolver.hpp         # Pivoted Gauss-Jordan inversion & residuals
-│   ├── Presets.hpp               # Analytical transformation generators
-│   ├── TransformationPipeline.hpp# Sequential vs Composite pipeline & verification
-│   ├── WasmBridge.cpp            # Emscripten WebAssembly bridge (JSON interface)
-│   └── build/                    # Compiled WebAssembly artifacts (.js / .wasm)
-├── frontend/                     # Interactive Web Application
-│   ├── index.html                # Modern High-Contrast HTML5 Workspace
-│   ├── package.json              # Node dependencies (Three.js, jsPDF, Vite)
-│   ├── public/wasm/              # Deployed WebAssembly runtime
-│   └── src/
-│       ├── main.js               # Application orchestrator
-│       ├── math/                 # Engine client & JS fallback reference
-│       ├── report/               # jsPDF Educational Report Generator
-│       ├── styles/               # Modern responsive glassmorphism UI styles
-│       ├── ui/                   # Matrix inputs & verification results panels
-│       └── visualization/        # Three.js 3D Viewport & Animation manager
-├── tests/                        # Automated Test Suites
-│   ├── test_engine.cpp           # Native C++ unit tests (115 tests)
-│   ├── test_wasm.js              # WebAssembly pipeline tests (32 tests)
-│   ├── test_viewport_animation.js# Interpolation & vector continuity (27 tests)
-│   └── test_coordinate_mapping_and_report.js # Coordinate mapping & PDF tests (16 tests)
-└── docs/                         # Mathematical traceability & specifications
+
+## System Workflow
+
+The application follows a cycle of input, computation, visualization, and verification.
+
+```mermaid
+flowchart TD
+    A(["Start"]) --> B["Enter Matrices and Vector"]
+    B --> C{"Valid Input?"}
+
+    C -- No --> D["Display Validation Error"]
+    D --> B
+
+    C -- Yes --> E["Select Operation"]
+    E --> F["Apply Individual Transformations"]
+    E --> G["Calculate Composite Matrix"]
+    E --> H["Verify Inverse"]
+
+    F --> I["Calculate Numerical Results"]
+    G --> I
+    H --> I
+
+    I --> J["Update 3D Visualization"]
+    J --> K["Compare and Verify Results"]
+    K --> L(["Complete"])
 ```
 
----
+## Mathematical Foundation
 
-## 🚀 Quick Start
+### Matrix-vector multiplication
+
+For a transformation matrix \(T\) and vector \(v\), the transformed vector is:
+
+\[
+v' = Tv
+\]
+
+For a \(3 \times 3\) matrix:
+
+\[
+T =
+\begin{bmatrix}
+a & b & c\\
+d & e & f\\
+g & h & i
+\end{bmatrix}
+\]
+
+and a vector:
+
+\[
+v =
+\begin{bmatrix}
+x\\y\\z
+\end{bmatrix}
+\]
+
+the transformed vector is:
+
+\[
+Tv =
+\begin{bmatrix}
+ax+by+cz\\
+dx+ey+fz\\
+gx+hy+iz
+\end{bmatrix}
+\]
+
+### Transformation composition
+
+For two transformations, the combined transformation is:
+
+\[
+T_{\text{combined}} = T_2T_1
+\]
+
+The rightmost matrix is applied first when column-vector notation is used.
+
+### Inverse verification
+
+If \(T\) is invertible, applying \(T\) followed by \(T^{-1}\) should recover the original vector:
+
+\[
+v_{\text{recovered}} = T^{-1}(Tv)
+\]
+
+Ideally:
+
+\[
+v_{\text{recovered}} = v
+\]
+
+In numerical computation, the result is checked within a suitable floating-point tolerance.
+
+## Project Structure
+
+The following is a suggested logical structure. Actual directories may differ depending on the current repository implementation.
+
+```text
+transformation-system/
+├── src/
+│   ├── components/
+│   ├── visualization/
+│   ├── mathematics/
+│   ├── services/
+│   └── main.js
+├── public/
+├── engine/
+│   └── cpp/
+├── tests/
+├── index.html
+├── package.json
+├── vite.config.js
+└── README.md
+```
+
+- `components/` — UI elements and input controls.
+- `visualization/` — 3D scenes and rendering logic.
+- `mathematics/` — Matrix and vector operations.
+- `services/` — Communication between the interface and mathematical engine.
+- `engine/cpp/` — C++ mathematical engine and WebAssembly integration, if implemented.
+- `tests/` — Mathematical correctness and regression tests.
+
+## Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
-- Modern web browser with WebAssembly and WebGL support
 
-### Running Locally
+Install the following tools according to the current implementation:
+
+- Node.js and npm
+- Git
+- A modern web browser
+- Emscripten SDK, if the mathematical engine is compiled from C++ to WebAssembly
+
+### Installation
+
+Clone the project repository:
 
 ```bash
-# 1. Navigate to the frontend directory
-cd frontend
+git clone <YOUR_REPOSITORY_URL>
+cd <YOUR_PROJECT_DIRECTORY>
+```
 
-# 2. Install dependencies
+Install the dependencies:
+
+```bash
 npm install
+```
 
-# 3. Start the development server
+Start the development server:
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:5173/` in your browser.
+Open the local URL displayed in the terminal.
 
-### Building for Production
+### Production Build
 
 ```bash
-cd frontend
 npm run build
 ```
 
----
-
-## 🧪 Testing & Verification
-
-The system includes comprehensive verification at native C++, WebAssembly, animation, and PDF export levels:
+Preview the production build:
 
 ```bash
-# 1. Native C++ engine tests (115 tests)
-./tests/test_engine.exe
-
-# 2. WebAssembly pipeline tests (32 tests)
-node tests/test_wasm.js
-
-# 3. Viewport animation tests (27 tests)
-node tests/test_viewport_animation.js
-
-# 4. 3D coordinate mapping & PDF report tests (16 tests)
-node tests/test_coordinate_mapping_and_report.js
+npm run preview
 ```
 
-All 190 tests pass with zero errors.
+The available scripts depend on the project's `package.json`. If the C++ engine requires a separate compilation step, run the configured Emscripten build before building the frontend.
 
----
+## Testing and Verification
 
-## 📜 Mathematical Foundations
+Mathematical correctness is a core requirement of the project.
 
-### 1. Sequential Application vs. Composition
-Given $n$ successive transformations $T_1, T_2, \dots, T_n$:
+The following cases should be tested before introducing additional features:
 
-$$\mathbf{v}_1 = T_1 \mathbf{v}_0, \quad \mathbf{v}_2 = T_2 \mathbf{v}_1, \quad \dots \quad \mathbf{v}_n = T_n \mathbf{v}_{n-1}$$
+- Identity transformation leaves vectors unchanged.
+- Scaling changes vector magnitudes as expected.
+- Rotation preserves lengths when using a proper rotation matrix.
+- Sequential transformations match their composite matrix.
+- Inverse transformations recover the original vector within numerical tolerance.
+- Singular matrices are rejected for inverse calculations.
+- Invalid matrix and vector inputs produce clear errors.
+- Visualization updates correctly when inputs change.
+- Existing features continue working after modifications.
 
-The single composite matrix $C$ is computed from right to left:
+## Development Roadmap
 
-$$C = T_n T_{n-1} \cdots T_2 T_1$$
+The project will prioritize completing and verifying existing functionality before expanding its mathematical capabilities.
 
-Equivalence is verified using a scale-aware infinity-norm residual:
+- [ ] Complete matrix and vector input.
+- [ ] Verify rotation, scaling, reflection, and shear presets.
+- [ ] Complete and test transformation composition.
+- [ ] Complete and test inverse verification.
+- [ ] Validate edge cases and numerical accuracy.
+- [ ] Verify synchronization between numerical results and 3D visualization.
+- [ ] Improve usability and error handling.
+- [ ] Add automated regression tests.
+- [ ] Explore an Eigenvector Explorer after the existing system is stable.
 
-$$\|C \mathbf{v}_0 - \mathbf{v}_n\|_\infty \le \epsilon = 10^{-9}$$
+## Design Principles
 
-### 2. Inversion & Recovery
-When $\det(C) \neq 0$ and the pivot threshold $|p_k| \ge 10^{-12} \cdot \|C\|_\infty$ is satisfied, $C^{-1}$ is computed via Gauss-Jordan elimination with row-partial pivoting. Vector recovery is verified by:
+1. **Mathematical correctness:** Every displayed result should correspond to the underlying computation.
+2. **Visual clarity:** Represent transformations in a way that supports understanding rather than distracting from it.
+3. **Verification first:** Test existing functionality before introducing new modules.
+4. **Modularity:** Keep the mathematical engine, interface, and visualization logically separated.
+5. **Numerical reliability:** Account for floating-point precision and singular matrices.
+6. **Interactive learning:** Allow users to change inputs and observe the consequences immediately.
 
-$$\|\mathbf{v}_{\text{rec}} - \mathbf{v}_0\|_2 = \|C^{-1}(C\mathbf{v}_0) - \mathbf{v}_0\|_2 < 10^{-9}$$
+## Future Scope
 
----
+Potential extensions include:
 
-## 📄 License
+- Eigenvalue and eigenvector visualization.
+- Transformation decomposition.
+- Basis-vector visualization.
+- Step-by-step matrix multiplication.
+- Numerical error analysis.
+- Additional geometric objects and transformation comparisons.
 
-MIT License. Designed for education, computational geometry, and linear algebra verification.
+These extensions can be introduced after the core composition, visualization, and inverse-verification features have been tested.
+
+## Acknowledgements
+
+The project builds upon the idea of interactive linear algebra visualization, using the existing `linmap3d` repository as its visualization foundation.
+
+- Reference repository: [fatfreebutter/linmap3d](https://github.com/fatfreebutter/linmap3d)
+
+## License
+
+Add the project's chosen license here after confirming the licensing requirements of the original visualization repository and all dependencies.
