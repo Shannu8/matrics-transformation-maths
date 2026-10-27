@@ -99,7 +99,6 @@ The following describes the intended framework and implementation architecture. 
 | Visualization | Three.js | Interactive 3D rendering |
 | Mathematical engine | C++ | Matrix operations and transformation calculations |
 | Web compilation | Emscripten / WebAssembly | Run compiled C++ calculations in the browser |
-| Visualization foundation | `linmap3d` | Existing 3D linear transformation visualization foundation |
 | Version control | Git and GitHub | Source control and collaboration |
 
 ### Framework Architecture
@@ -120,6 +119,7 @@ flowchart TD
 
     H --> I["Three.js Visualization"]
     H --> J["Numerical Verification"]
+
     I --> K["Interactive 3D Scene"]
     J --> L["Result Comparison"]
 
@@ -140,6 +140,7 @@ flowchart TD
     D --> B
 
     C -- Yes --> E["Select Operation"]
+
     E --> F["Apply Individual Transformations"]
     E --> G["Calculate Composite Matrix"]
     E --> H["Verify Inverse"]
@@ -155,7 +156,7 @@ flowchart TD
 
 ## Mathematical Foundation
 
-### Matrix-vector multiplication
+### Matrix-Vector Multiplication
 
 For a transformation matrix \(T\) and vector \(v\), the transformed vector is:
 
@@ -179,7 +180,9 @@ and a vector:
 \[
 v =
 \begin{bmatrix}
-x\\y\\z
+x\\
+y\\
+z
 \end{bmatrix}
 \]
 
@@ -194,7 +197,7 @@ gx+hy+iz
 \end{bmatrix}
 \]
 
-### Transformation composition
+### Transformation Composition
 
 For two transformations, the combined transformation is:
 
@@ -204,7 +207,7 @@ T_{\text{combined}} = T_2T_1
 
 The rightmost matrix is applied first when column-vector notation is used.
 
-### Inverse verification
+### Inverse Verification
 
 If \(T\) is invertible, applying \(T\) followed by \(T^{-1}\) should recover the original vector:
 
@@ -285,6 +288,8 @@ Open the local URL displayed in the terminal.
 
 ### Production Build
 
+Build the application:
+
 ```bash
 npm run build
 ```
@@ -349,12 +354,6 @@ Potential extensions include:
 
 These extensions can be introduced after the core composition, visualization, and inverse-verification features have been tested.
 
-## Acknowledgements
-
-The project builds upon the idea of interactive linear algebra visualization, using the existing `linmap3d` repository as its visualization foundation.
-
-- Reference repository: [fatfreebutter/linmap3d](https://github.com/fatfreebutter/linmap3d)
-
 ## License
 
-Add the project's chosen license here after confirming the licensing requirements of the original visualization repository and all dependencies.
+Specify the project's chosen license here.
