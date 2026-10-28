@@ -58,6 +58,7 @@ v' = T_2(T_1v) = (T_2T_1)v
 The system helps users compare sequential transformation with direct application of the composite matrix.
 
 > **Note:** Matrix multiplication is generally not commutative. In general, \(T_2T_1 \ne T_1T_2\).
+> 
 
 ### 4. Inverse Matrix Verification
 
