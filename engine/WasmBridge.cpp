@@ -1,3 +1,6 @@
+//This is the main cpp file that do the calculation
+
+
 #include "TransformationPipeline.hpp"
 #include "Presets.hpp"
 #include "InverseSolver.hpp"
