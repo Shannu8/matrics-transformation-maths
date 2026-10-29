@@ -45,6 +45,7 @@ Combine two or more transformations into a single equivalent matrix.
 
 For two transformations, the composite matrix is:
 
+
 \[
 T = T_2T_1
 \]
