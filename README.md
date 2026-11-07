@@ -1,10 +1,12 @@
 # Transformation Composition and Inverse Verification System
 
+
 An interactive linear algebra visualization system for exploring **matrix transformations, transformation composition, inverse matrices, and their geometric effects in 3D space**.
 
 The project connects mathematical theory with visual experimentation, allowing users to define transformations, apply them to vectors, observe the resulting geometric changes, and verify mathematical properties through computation.
 
-## Overview
+## Overview:
+
 
 Linear algebra is fundamental to computer graphics, robotics, computer vision, and scientific computing. However, understanding how matrices transform vectors and how multiple transformations combine can be difficult when studying equations alone.
 
