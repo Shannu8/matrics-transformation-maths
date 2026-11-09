@@ -78,7 +78,7 @@ git clone https://github.com/YOUR_USERNAME/MatrixLab.git
 Navigate into the project directory:
 
 ```bash
-cd MatrixLab
+cd frontend
 ```
 
 Alternatively, download the repository as a ZIP file and extract it.
