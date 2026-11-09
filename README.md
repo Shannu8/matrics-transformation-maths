@@ -1,362 +1,223 @@
-# Transformation Composition and Inverse Verification System
+# MatrixLab
+### Interactive Linear Algebra & Matrix Transformation Visualizer
 
-An interactive linear algebra visualization system for exploring **matrix transformations, transformation composition, inverse matrices, and their geometric effects in 3D space**.
+MatrixLab is a C++-based project designed to explore the mathematical foundations of linear algebra through interactive computation and visualization.
 
-The project connects mathematical theory with visual experimentation, allowing users to define transformations, apply them to vectors, observe the resulting geometric changes, and verify mathematical properties through computation.
+The long-term goal is to develop a Desmos-inspired environment where users can manipulate matrices, vectors, and transformations and observe how they affect geometric spaces.
 
-## Overview
+The project is being developed incrementally, implementing and validating each mathematical operation individually before introducing visualization and advanced features.
 
-Linear algebra is fundamental to computer graphics, robotics, computer vision, and scientific computing. However, understanding how matrices transform vectors and how multiple transformations combine can be difficult when studying equations alone.
+---
 
-This project provides an interactive environment where users can experiment with transformation matrices and observe their effects visually.
+## Project Goals
 
-The system focuses on three core areas:
+- Implement fundamental linear algebra operations from scratch using C++.
+- Understand the mathematical principles behind matrix and vector operations.
+- Build a reusable mathematical engine.
+- Visualize how matrices transform vectors, coordinate grids, and geometric objects.
+- Eventually develop an interactive desktop application and a browser-based version using WebAssembly.
 
-- **Transformation Visualization:** Observe how matrices transform vectors and geometric objects.
-- **Transformation Composition:** Combine multiple transformations and compare sequential application with the equivalent composite matrix.
-- **Inverse Verification:** Verify whether an inverse transformation restores the original vector or geometric configuration.
+## Current Development Status
 
-The project is designed as a standalone application, with a focus on mathematical correctness, interactive visualization, and an intuitive user experience.
+**Phase 1: Fundamental Matrix Operations**
 
-## Features
+Currently implementing:
 
-### 1. Matrix Input and Transformation Presets
+- Matrix representation
+- Matrix input and output
+- Matrix addition
+- Matrix dimension validation
 
-- Manually enter \(3 \times 3\) transformation matrices.
-- Define transformation matrices \(T_1\), \(T_2\), and optionally \(T_3\).
-- Use predefined transformation presets:
-  - Rotation
-  - Scaling
-  - Reflection
-  - Shearing
-- Enter custom vectors and observe their transformed positions.
-- Validate matrix and vector inputs before computation.
+Additional operations will be implemented progressively.
 
-### 2. Interactive 3D Visualization
-
-- Visualize transformations in a 3D coordinate system.
-- Observe the geometric effects of matrix operations.
-- Compare original and transformed vectors or objects.
-- Understand how individual transformations affect direction, magnitude, and orientation.
-
-### 3. Transformation Composition
-
-Combine two or more transformations into a single equivalent matrix.
-
-For two transformations, the composite matrix is:
-
-
-\[
-T = T_2T_1
-\]
-
-For a column vector \(v\):
-
-\[
-v' = T_2(T_1v) = (T_2T_1)v
-\]
-
-The system helps users compare sequential transformation with direct application of the composite matrix.
-
-> **Note:** Matrix multiplication is generally not commutative. In general, \(T_2T_1 \ne T_1T_2\).
-> 
-
-### 4. Inverse Matrix Verification
-
-- Calculate or verify the inverse of a transformation matrix.
-- Apply a transformation followed by its inverse.
-- Compare the recovered vector with the original vector.
-- Verify the identity relationship:
-
-\[
-T^{-1}T = TT^{-1} = I
-\]
-
-A matrix has an inverse only when it is nonsingular. For a square matrix, this requires:
-
-\[
-\det(T) \ne 0
-\]
-
-The system should identify singular matrices and handle cases where an inverse does not exist.
-
-### 5. Mathematical Verification
-
-The system aims to make mathematical correctness observable rather than relying only on visual output.
-
-- Compare sequential and composite transformations.
-- Verify inverse transformation results.
-- Detect invalid or singular matrices.
-- Compare computed results using an appropriate numerical tolerance.
-- Display numerical results alongside the visualization.
+---
 
 ## Technology Stack
 
-The following describes the intended framework and implementation architecture. The exact dependencies should match the versions and packages actually used in the repository.
+| Technology | Purpose |
+|---|---|
+| C++ | Core mathematical engine |
+| C++17 | Language standard |
+| GCC / MinGW | Compiler |
+| VS Code | Development environment |
+| SFML (planned) | Desktop graphics and visualization |
+| WebAssembly (planned) | Browser-based execution |
+| HTML, CSS, JavaScript (planned) | Web interface |
 
-| Component | Technology | Purpose |
-|---|---|---|
-| Frontend | JavaScript / HTML / CSS | User interface and interaction |
-| Development framework | Vite | Development server and build tooling |
-| Visualization | Three.js | Interactive 3D rendering |
-| Mathematical engine | C++ | Matrix operations and transformation calculations |
-| Web compilation | Emscripten / WebAssembly | Run compiled C++ calculations in the browser |
-| Version control | Git and GitHub | Source control and collaboration |
+---
 
-### Framework Architecture
-
-```mermaid
-flowchart TD
-    A["User Interface"] --> B["Matrix and Vector Input"]
-    B --> C["Input Validation"]
-    C --> D["Mathematical Engine"]
-
-    D --> E["Matrix Operations"]
-    D --> F["Transformation Composition"]
-    D --> G["Inverse Verification"]
-
-    E --> H["Computed Results"]
-    F --> H
-    G --> H
-
-    H --> I["Three.js Visualization"]
-    H --> J["Numerical Verification"]
-
-    I --> K["Interactive 3D Scene"]
-    J --> L["Result Comparison"]
-
-    K --> M["User Feedback"]
-    L --> M
-```
-
-## System Workflow
-
-The application follows a cycle of input, computation, visualization, and verification.
-
-```mermaid
-flowchart TD
-    A(["Start"]) --> B["Enter Matrices and Vector"]
-    B --> C{"Valid Input?"}
-
-    C -- No --> D["Display Validation Error"]
-    D --> B
-
-    C -- Yes --> E["Select Operation"]
-
-    E --> F["Apply Individual Transformations"]
-    E --> G["Calculate Composite Matrix"]
-    E --> H["Verify Inverse"]
-
-    F --> I["Calculate Numerical Results"]
-    G --> I
-    H --> I
-
-    I --> J["Update 3D Visualization"]
-    J --> K["Compare and Verify Results"]
-    K --> L(["Complete"])
-```
-
-## Mathematical Foundation
-
-### Matrix-Vector Multiplication
-
-For a transformation matrix \(T\) and vector \(v\), the transformed vector is:
-
-\[
-v' = Tv
-\]
-
-For a \(3 \times 3\) matrix:
-
-\[
-T =
-\begin{bmatrix}
-a & b & c\\
-d & e & f\\
-g & h & i
-\end{bmatrix}
-\]
-
-and a vector:
-
-\[
-v =
-\begin{bmatrix}
-x\\
-y\\
-z
-\end{bmatrix}
-\]
-
-the transformed vector is:
-
-\[
-Tv =
-\begin{bmatrix}
-ax+by+cz\\
-dx+ey+fz\\
-gx+hy+iz
-\end{bmatrix}
-\]
-
-### Transformation Composition
-
-For two transformations, the combined transformation is:
-
-\[
-T_{\text{combined}} = T_2T_1
-\]
-
-The rightmost matrix is applied first when column-vector notation is used.
-
-### Inverse Verification
-
-If \(T\) is invertible, applying \(T\) followed by \(T^{-1}\) should recover the original vector:
-
-\[
-v_{\text{recovered}} = T^{-1}(Tv)
-\]
-
-Ideally:
-
-\[
-v_{\text{recovered}} = v
-\]
-
-In numerical computation, the result is checked within a suitable floating-point tolerance.
-
-## Project Structure
-
-The following is a suggested logical structure. Actual directories may differ depending on the current repository implementation.
-
-```text
-transformation-system/
-├── src/
-│   ├── components/
-│   ├── visualization/
-│   ├── mathematics/
-│   ├── services/
-│   └── main.js
-├── public/
-├── engine/
-│   └── cpp/
-├── tests/
-├── index.html
-├── package.json
-├── vite.config.js
-└── README.md
-```
-
-- `components/` — UI elements and input controls.
-- `visualization/` — 3D scenes and rendering logic.
-- `mathematics/` — Matrix and vector operations.
-- `services/` — Communication between the interface and mathematical engine.
-- `engine/cpp/` — C++ mathematical engine and WebAssembly integration, if implemented.
-- `tests/` — Mathematical correctness and regression tests.
-
-## Getting Started
+## Installation & Setup
 
 ### Prerequisites
 
-Install the following tools according to the current implementation:
+Install the following:
 
-- Node.js and npm
-- Git
-- A modern web browser
-- Emscripten SDK, if the mathematical engine is compiled from C++ to WebAssembly
+- Windows 10 or Windows 11
+- Visual Studio Code
+- GCC/G++ compiler (MinGW-w64)
+- Git (optional)
 
-### Installation
+### 1. Verify the C++ compiler
 
-Clone the project repository:
-
-```bash
-git clone <YOUR_REPOSITORY_URL>
-cd <YOUR_PROJECT_DIRECTORY>
-```
-
-Install the dependencies:
+Open Command Prompt or the VS Code terminal and run:
 
 ```bash
-npm install
+g++ --version
 ```
 
-Start the development server:
+If GCC is installed and configured correctly, the compiler version will be displayed.
+
+If the command is not recognized, install MinGW-w64 and add its `bin` directory to your system PATH.
+
+### 2. Clone the repository
 
 ```bash
-npm run dev
+git clone https://github.com/YOUR_USERNAME/MatrixLab.git
 ```
 
-Open the local URL displayed in the terminal.
-
-### Production Build
-
-Build the application:
+Navigate into the project directory:
 
 ```bash
-npm run build
+cd MatrixLab
 ```
 
-Preview the production build:
+Alternatively, download the repository as a ZIP file and extract it.
+
+### 3. Open the project in VS Code
 
 ```bash
-npm run preview
+code .
 ```
 
-The available scripts depend on the project's `package.json`. If the C++ engine requires a separate compilation step, run the configured Emscripten build before building the frontend.
+Ensure that the C/C++ extension by Microsoft is installed.
 
-## Testing and Verification
+### 4. Compile the project
 
-Mathematical correctness is a core requirement of the project.
+For the current C++ implementation:
 
-The following cases should be tested before introducing additional features:
+```bash
+g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o MatrixLab.exe
+```
 
-- Identity transformation leaves vectors unchanged.
-- Scaling changes vector magnitudes as expected.
-- Rotation preserves lengths when using a proper rotation matrix.
-- Sequential transformations match their composite matrix.
-- Inverse transformations recover the original vector within numerical tolerance.
-- Singular matrices are rejected for inverse calculations.
-- Invalid matrix and vector inputs produce clear errors.
-- Visualization updates correctly when inputs change.
-- Existing features continue working after modifications.
+If the project contains multiple source files, compile them together:
 
-## Development Roadmap
+```bash
+g++ -std=c++17 -Wall -Wextra -O2 main.cpp Matrix.cpp -o MatrixLab.exe
+```
 
-The project will prioritize completing and verifying existing functionality before expanding its mathematical capabilities.
+### 5. Run the application
 
-- [ ] Complete matrix and vector input.
-- [ ] Verify rotation, scaling, reflection, and shear presets.
-- [ ] Complete and test transformation composition.
-- [ ] Complete and test inverse verification.
-- [ ] Validate edge cases and numerical accuracy.
-- [ ] Verify synchronization between numerical results and 3D visualization.
-- [ ] Improve usability and error handling.
-- [ ] Add automated regression tests.
-- [ ] Explore an Eigenvector Explorer after the existing system is stable.
+On Windows:
 
-## Design Principles
+```bash
+.\MatrixLab.exe
+```
 
-1. **Mathematical correctness:** Every displayed result should correspond to the underlying computation.
-2. **Visual clarity:** Represent transformations in a way that supports understanding rather than distracting from it.
-3. **Verification first:** Test existing functionality before introducing new modules.
-4. **Modularity:** Keep the mathematical engine, interface, and visualization logically separated.
-5. **Numerical reliability:** Account for floating-point precision and singular matrices.
-6. **Interactive learning:** Allow users to change inputs and observe the consequences immediately.
+---
 
-## Future Scope
+## Project Structure
 
-Potential extensions include:
+The project structure will evolve as additional mathematical operations are implemented.
 
-- Eigenvalue and eigenvector visualization.
-- Transformation decomposition.
-- Basis-vector visualization.
-- Step-by-step matrix multiplication.
-- Numerical error analysis.
-- Additional geometric objects and transformation comparisons.
+```text
+MatrixLab/
+│
+├── src/
+│   ├── main.cpp
+│   ├── Matrix.cpp
+│   └── Matrix.h
+│
+├── tests/
+│   └── matrix_tests.cpp
+│
+├── README.md
+└── .gitignore
+```
 
-These extensions can be introduced after the core composition, visualization, and inverse-verification features have been tested.
+---
+
+## Mathematical Roadmap
+
+### Phase 1 — Fundamental Operations
+- [x] Project initialization
+- [ ] Matrix representation
+- [ ] Matrix addition
+- [ ] Matrix subtraction
+- [ ] Scalar multiplication
+- [ ] Matrix multiplication
+- [ ] Matrix-vector multiplication
+
+### Phase 2 — Advanced Matrix Operations
+- [ ] Transpose
+- [ ] Determinant
+- [ ] Inverse
+- [ ] Rank
+- [ ] Trace
+
+### Phase 3 — Vector Mathematics
+- [ ] Vector addition and subtraction
+- [ ] Dot product
+- [ ] Magnitude
+- [ ] Normalization
+- [ ] Vector projection
+
+### Phase 4 — Linear Transformations
+- [ ] Scaling
+- [ ] Rotation
+- [ ] Reflection
+- [ ] Shearing
+- [ ] Transformation composition
+
+### Phase 5 — Interactive Visualization
+- [ ] 2D coordinate system
+- [ ] Vector rendering
+- [ ] Matrix transformation visualization
+- [ ] Animated coordinate grid
+- [ ] Basis vector visualization
+- [ ] Determinant and area visualization
+
+### Phase 6 — Advanced Mathematics
+- [ ] Eigenvalues
+- [ ] Eigenvectors
+- [ ] Matrix decomposition
+- [ ] Singular Value Decomposition (SVD)
+- [ ] 3D transformations
+
+### Phase 7 — Web Application
+- [ ] Compile C++ mathematical engine using WebAssembly
+- [ ] Develop interactive frontend
+- [ ] Integrate JavaScript with C++
+- [ ] Add PHP and MySQL for saving experiments
+- [ ] Implement matrix sharing and user accounts
+
+---
+
+## Design Philosophy
+
+MatrixLab follows a mathematics-first development approach.
+
+Each operation will be:
+
+1. Mathematically understood.
+2. Implemented from scratch in C++.
+3. Tested using appropriate examples and edge cases.
+4. Integrated into the larger mathematical engine.
+5. Eventually visualized interactively.
+
+The objective is not simply to calculate mathematical results, but to understand and visualize the mathematics behind them.
+
+---
+
+## Future Vision
+
+MatrixLab aims to become an interactive linear algebra environment where users can manipulate matrices and vectors and observe their mathematical consequences in real time.
+
+Inspired by interactive mathematical tools such as Desmos, the project aims to connect abstract mathematical concepts with visual intuition.
+
+**See the mathematics. Transform the space.**
+
+---
 
 ## License
 
-Specify the project's chosen license here.
-
+This project is currently under development. Licensing information will be added in a future release.
